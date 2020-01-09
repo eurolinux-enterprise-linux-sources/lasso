@@ -11,7 +11,7 @@
 Summary: Liberty Alliance Single Sign On
 Name: lasso
 Version: 2.4.0
-Release: 5%{?dist}
+Release: 6%{?dist}
 License: GPLv2+
 Group: System Environment/Libraries
 Source: http://dev.entrouvert.org/lasso/lasso-%{version}.tar.gz
@@ -28,6 +28,8 @@ Patch02: 0001-Fix-generators-for-parsing-of-integer-values.patch
 Patch03: 0002-xml-xml.c-fix-liberal-use-of-casting-for-the-SNIPPET.patch
 Patch04: lasso-2.4.0-master-fixes.patch
 Patch05: lasso-2.4.0-covscan.patch
+Patch06: 0001-xml-support-xsd-choices-by-allowing-to-rewind-or-adv.patch
+Patch07: 0002-xml-modify-xschema-snippets-to-handle-xsd-choice-con.patch
 
 %description
 Lasso is a library that implements the Liberty Alliance Single Sign On
@@ -108,6 +110,8 @@ library.
 %patch03 -p1 -b .xml_casts
 %patch04 -p1 -b .fixes
 %patch05 -p1 -b .covscan
+%patch06 -p1
+%patch07 -p1
 
 %build
 ./autogen.sh
@@ -210,7 +214,11 @@ rm -fr %{buildroot}%{_defaultdocdir}/%{name}
 %endif
 
 %changelog
-* Thu Jul 30 2014 Simo Sorce <simo@redhat.com> - 2.4.0-5
+* Fri Dec  5 2014 Simo Sorce <simo@redhat.com> - 2.4.0-6
+- Add support for ADFS interoperability
+- Resolves: #1160636
+
+* Wed Jul 30 2014 Simo Sorce <simo@redhat.com> - 2.4.0-5
 - Add various fixes from upstream master, mostly memory leaks
 - Change to final covscan fixes as applied upstream
 

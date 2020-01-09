@@ -1,0 +1,343 @@
+From 4ad4b673940ef72de1a62d7589cd0d86290086b1 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sat, 7 Jun 2014 14:09:58 +0200
+Subject: [PATCH 2/2] xml: modify xschema snippets to handle xsd:choice
+ constructs
+
+---
+ lasso/xml/saml-2.0/saml2_advice.c                    |  6 +++---
+ lasso/xml/saml-2.0/saml2_assertion.c                 |  6 +++---
+ lasso/xml/saml-2.0/saml2_attribute_statement.c       |  2 +-
+ lasso/xml/saml-2.0/saml2_authn_context.c             | 10 +++++++---
+ lasso/xml/saml-2.0/saml2_conditions.c                |  6 +++---
+ lasso/xml/saml-2.0/saml2_evidence.c                  | 16 +++++++++++++---
+ lasso/xml/saml-2.0/saml2_subject.c                   |  8 +++++---
+ lasso/xml/saml-2.0/saml2_subject_confirmation.c      |  4 ++--
+ lasso/xml/saml-2.0/samlp2_logout_request.c           |  4 ++--
+ lasso/xml/saml-2.0/samlp2_manage_name_id_request.c   |  6 +++---
+ lasso/xml/saml-2.0/samlp2_name_id_mapping_request.c  |  4 ++--
+ lasso/xml/saml-2.0/samlp2_name_id_mapping_response.c |  2 +-
+ lasso/xml/saml-2.0/samlp2_requested_authn_context.c  | 10 ++++++++--
+ lasso/xml/saml-2.0/samlp2_response.c                 |  5 +++--
+ lasso/xml/saml_advice.c                              |  2 +-
+ lasso/xml/saml_assertion.c                           |  4 ++--
+ lasso/xml/saml_subject.c                             |  2 +-
+ 17 files changed, 60 insertions(+), 37 deletions(-)
+
+diff --git a/lasso/xml/saml-2.0/saml2_advice.c b/lasso/xml/saml-2.0/saml2_advice.c
+index e5ea13d0bc8f3d34a8bd119f5c114f3df1340023..54c436e54b15e5cc45074618b3061c41822d274c 100644
+--- a/lasso/xml/saml-2.0/saml2_advice.c
++++ b/lasso/xml/saml-2.0/saml2_advice.c
+@@ -52,11 +52,11 @@
+ static struct XmlSnippet schema_snippets[] = {
+ 	{ "AssertionIDRef", SNIPPET_LIST_NODES,
+ 		G_STRUCT_OFFSET(LassoSaml2Advice, AssertionIDRef), NULL, NULL, NULL},
+-	{ "AssertionURIRef", SNIPPET_LIST_NODES,
++	{ "AssertionURIRef", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSaml2Advice, AssertionURIRef), NULL, NULL, NULL},
+-	{ "Assertion", SNIPPET_LIST_NODES,
++	{ "Assertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Advice, Assertion), NULL, NULL, NULL},
+-	{ "EncryptedAssertion", SNIPPET_LIST_NODES,
++	{ "EncryptedAssertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_3,
+ 		G_STRUCT_OFFSET(LassoSaml2Advice, EncryptedAssertion), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+diff --git a/lasso/xml/saml-2.0/saml2_assertion.c b/lasso/xml/saml-2.0/saml2_assertion.c
+index 3346a86e0f2a7876f31db2cb1e03aedd17347a73..549742a69814936f30c6f394bc6b696ad0c93079 100644
+--- a/lasso/xml/saml-2.0/saml2_assertion.c
++++ b/lasso/xml/saml-2.0/saml2_assertion.c
+@@ -78,11 +78,11 @@ static struct XmlSnippet schema_snippets[] = {
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, Advice), NULL, NULL, NULL},
+ 	{ "Statement", SNIPPET_LIST_NODES,
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, Statement), NULL, NULL, NULL},
+-	{ "AuthnStatement", SNIPPET_LIST_NODES,
++	{ "AuthnStatement", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, AuthnStatement), NULL, NULL, NULL},
+-	{ "AuthzDecisionStatement", SNIPPET_LIST_NODES,
++	{ "AuthzDecisionStatement", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, AuthzDecisionStatement), NULL, NULL, NULL},
+-	{ "AttributeStatement", SNIPPET_LIST_NODES,
++	{ "AttributeStatement", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_3,
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, AttributeStatement), NULL, NULL, NULL},
+ 	{ "Version", SNIPPET_ATTRIBUTE,
+ 		G_STRUCT_OFFSET(LassoSaml2Assertion, Version), NULL, NULL, NULL},
+diff --git a/lasso/xml/saml-2.0/saml2_attribute_statement.c b/lasso/xml/saml-2.0/saml2_attribute_statement.c
+index b7303fee7cd0bd61a5b2ee5bda62335de3bf37c6..e251c6b0d69870af4e5968c843a03e67073c7609 100644
+--- a/lasso/xml/saml-2.0/saml2_attribute_statement.c
++++ b/lasso/xml/saml-2.0/saml2_attribute_statement.c
+@@ -53,7 +53,7 @@
+ static struct XmlSnippet schema_snippets[] = {
+ 	{ "Attribute", SNIPPET_LIST_NODES,
+ 		G_STRUCT_OFFSET(LassoSaml2AttributeStatement, Attribute), NULL, NULL, NULL},
+-	{ "EncryptedAttribute", SNIPPET_LIST_NODES,
++	{ "EncryptedAttribute", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSaml2AttributeStatement, EncryptedAttribute), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+diff --git a/lasso/xml/saml-2.0/saml2_authn_context.c b/lasso/xml/saml-2.0/saml2_authn_context.c
+index 995a7ab311aaf742e3953f9dae39caf22ebbbae0..5b7c49805ef13cf7d7a260f62e2267cca7dbf400 100644
+--- a/lasso/xml/saml-2.0/saml2_authn_context.c
++++ b/lasso/xml/saml-2.0/saml2_authn_context.c
+@@ -59,11 +59,15 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "AuthnContextClassRef", SNIPPET_CONTENT | SNIPPET_OPTIONAL,
++	{ "AuthnContextClassRef", SNIPPET_CONTENT | SNIPPET_OPTIONAL | SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_3,
+ 		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthnContextClassRef), NULL, NULL, NULL},
+-	{ "AuthnContextDecl", SNIPPET_NODE | SNIPPET_OPTIONAL,
++	{ "AuthnContextDecl", SNIPPET_NODE | SNIPPET_OPTIONAL | SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_4,
+ 		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthnContextDecl), NULL, NULL, NULL},
+-	{ "AuthnContextDeclRef", SNIPPET_CONTENT | SNIPPET_OPTIONAL,
++	{ "AuthnContextDeclRef", SNIPPET_CONTENT | SNIPPET_OPTIONAL | SNIPPET_JUMP | SNIPPET_JUMP_3,
++		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthnContextDeclRef), NULL, NULL, NULL},
++	{ "AuthnContextDecl", SNIPPET_NODE | SNIPPET_OPTIONAL | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
++		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthnContextDecl), NULL, NULL, NULL},
++	{ "AuthnContextDeclRef", SNIPPET_CONTENT | SNIPPET_MANDATORY,
+ 		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthnContextDeclRef), NULL, NULL, NULL},
+ 	{ "AuthenticatingAuthority", SNIPPET_CONTENT | SNIPPET_OPTIONAL,
+ 		G_STRUCT_OFFSET(LassoSaml2AuthnContext, AuthenticatingAuthority), NULL, NULL, NULL},
+diff --git a/lasso/xml/saml-2.0/saml2_conditions.c b/lasso/xml/saml-2.0/saml2_conditions.c
+index 37bff88093512c200b5f2ac1f2f4da86f2c994ea..cfa1b012b3bfc85fedfdee8a187f4ff1e387d1c4 100644
+--- a/lasso/xml/saml-2.0/saml2_conditions.c
++++ b/lasso/xml/saml-2.0/saml2_conditions.c
+@@ -53,11 +53,11 @@
+ static struct XmlSnippet schema_snippets[] = {
+ 	{ "Condition", SNIPPET_LIST_NODES,
+ 		G_STRUCT_OFFSET(LassoSaml2Conditions, Condition), NULL, NULL, NULL},
+-	{ "AudienceRestriction", SNIPPET_LIST_NODES,
++	{ "AudienceRestriction", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSaml2Conditions, AudienceRestriction), NULL, NULL, NULL},
+-	{ "OneTimeUse", SNIPPET_LIST_NODES,
++	{ "OneTimeUse", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Conditions, OneTimeUse), NULL, NULL, NULL},
+-	{ "ProxyRestriction", SNIPPET_LIST_NODES,
++	{ "ProxyRestriction", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_3,
+ 		G_STRUCT_OFFSET(LassoSaml2Conditions, ProxyRestriction), NULL, NULL, NULL},
+ 	{ "NotBefore", SNIPPET_ATTRIBUTE,
+ 		G_STRUCT_OFFSET(LassoSaml2Conditions, NotBefore), NULL, NULL, NULL},
+diff --git a/lasso/xml/saml-2.0/saml2_evidence.c b/lasso/xml/saml-2.0/saml2_evidence.c
+index 986390c038db90b1f76f734ba163f71ee46f3858..bb9b66f71d26d33a8f2ee2f40f71d55cb1f98663 100644
+--- a/lasso/xml/saml-2.0/saml2_evidence.c
++++ b/lasso/xml/saml-2.0/saml2_evidence.c
+@@ -49,13 +49,23 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
++        /* 1 */
++	{ "AssertionIDRef", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_4,
++		G_STRUCT_OFFSET(LassoSaml2Evidence, AssertionIDRef), NULL, NULL, NULL},
++	{ "AssertionURIRef", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3,
++		G_STRUCT_OFFSET(LassoSaml2Evidence, AssertionURIRef), NULL, NULL, NULL},
++	{ "Assertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
++		G_STRUCT_OFFSET(LassoSaml2Evidence, Assertion), NULL, NULL, NULL},
++	{ "EncryptedAssertion", SNIPPET_LIST_NODES | SNIPPET_MANDATORY | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_1,
++		G_STRUCT_OFFSET(LassoSaml2Evidence, EncryptedAssertion), NULL, NULL, NULL},
++        /* star */
+ 	{ "AssertionIDRef", SNIPPET_LIST_NODES,
+ 		G_STRUCT_OFFSET(LassoSaml2Evidence, AssertionIDRef), NULL, NULL, NULL},
+-	{ "AssertionURIRef", SNIPPET_LIST_NODES,
++	{ "AssertionURIRef", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSaml2Evidence, AssertionURIRef), NULL, NULL, NULL},
+-	{ "Assertion", SNIPPET_LIST_NODES,
++	{ "Assertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Evidence, Assertion), NULL, NULL, NULL},
+-	{ "EncryptedAssertion", SNIPPET_LIST_NODES,
++	{ "EncryptedAssertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_3,
+ 		G_STRUCT_OFFSET(LassoSaml2Evidence, EncryptedAssertion), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+diff --git a/lasso/xml/saml-2.0/saml2_subject.c b/lasso/xml/saml-2.0/saml2_subject.c
+index f9d865fbdbcaba3f415c4655b2d997eb05b8d5f8..9bba80d4888e0cac49ca5c8451b5b1950c19a66e 100644
+--- a/lasso/xml/saml-2.0/saml2_subject.c
++++ b/lasso/xml/saml-2.0/saml2_subject.c
+@@ -54,13 +54,15 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "BaseID", SNIPPET_NODE,
++	{ "BaseID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3,
+ 		G_STRUCT_OFFSET(LassoSaml2Subject, BaseID), NULL, NULL, NULL},
+-	{ "NameID", SNIPPET_NODE,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Subject, NameID), NULL, NULL, NULL},
+-	{ "EncryptedID", SNIPPET_NODE,
++	{ "EncryptedID", SNIPPET_NODE | SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSaml2Subject, EncryptedID),
+ 		"LassoSaml2EncryptedElement", NULL, NULL},
++	{ "SubjectConfirmation", SNIPPET_NODE | SNIPPET_OPTIONAL | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
++		G_STRUCT_OFFSET(LassoSaml2Subject, SubjectConfirmation), NULL, NULL, NULL},
+ 	{ "SubjectConfirmation", SNIPPET_NODE,
+ 		G_STRUCT_OFFSET(LassoSaml2Subject, SubjectConfirmation), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+diff --git a/lasso/xml/saml-2.0/saml2_subject_confirmation.c b/lasso/xml/saml-2.0/saml2_subject_confirmation.c
+index 3a8f9047eba96ff9da55caca3ea75f689e9f94a5..e591369bead8b2ffa9cee95088c3b6a91d08d921 100644
+--- a/lasso/xml/saml-2.0/saml2_subject_confirmation.c
++++ b/lasso/xml/saml-2.0/saml2_subject_confirmation.c
+@@ -52,9 +52,9 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "BaseID", SNIPPET_NODE,
++	{ "BaseID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3,
+ 		G_STRUCT_OFFSET(LassoSaml2SubjectConfirmation, BaseID), NULL, NULL, NULL},
+-	{ "NameID", SNIPPET_NODE,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSaml2SubjectConfirmation, NameID), NULL, NULL, NULL},
+ 	{ "EncryptedID", SNIPPET_NODE,
+ 		G_STRUCT_OFFSET(LassoSaml2SubjectConfirmation, EncryptedID),
+diff --git a/lasso/xml/saml-2.0/samlp2_logout_request.c b/lasso/xml/saml-2.0/samlp2_logout_request.c
+index 034d63de260962810a61275e73b44c3c863c2465..d57f0789a57e8d26df9c18804b7552e220a84915 100644
+--- a/lasso/xml/saml-2.0/samlp2_logout_request.c
++++ b/lasso/xml/saml-2.0/samlp2_logout_request.c
+@@ -66,9 +66,9 @@ struct _LassoSamlp2LogoutRequestPrivate {
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "BaseID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2LogoutRequest, BaseID), NULL,
++	{ "BaseID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3, G_STRUCT_OFFSET(LassoSamlp2LogoutRequest, BaseID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+-	{ "NameID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2LogoutRequest, NameID), NULL,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2, G_STRUCT_OFFSET(LassoSamlp2LogoutRequest, NameID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+ 	{ "EncryptedID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2LogoutRequest, EncryptedID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+diff --git a/lasso/xml/saml-2.0/samlp2_manage_name_id_request.c b/lasso/xml/saml-2.0/samlp2_manage_name_id_request.c
+index ff9dc34a10b94ce092b40c3b8060eba2444fb41d..e2d831223339b8adb1da2f9ed1fe88be6a2bd9c1 100644
+--- a/lasso/xml/saml-2.0/samlp2_manage_name_id_request.c
++++ b/lasso/xml/saml-2.0/samlp2_manage_name_id_request.c
+@@ -58,14 +58,14 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "NameID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2ManageNameIDRequest, NameID), NULL,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2, G_STRUCT_OFFSET(LassoSamlp2ManageNameIDRequest, NameID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+ 	{ "EncryptedID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2ManageNameIDRequest, EncryptedID),
+ 		"LassoSaml2EncryptedElement", LASSO_SAML2_ASSERTION_PREFIX,
+ 		LASSO_SAML2_ASSERTION_HREF},
+-	{ "NewID", SNIPPET_CONTENT,
++	{ "NewID", SNIPPET_CONTENT | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3,
+ 		G_STRUCT_OFFSET(LassoSamlp2ManageNameIDRequest, NewID), NULL, NULL, NULL},
+-	{ "NewEncryptedID", SNIPPET_NODE,
++	{ "NewEncryptedID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSamlp2ManageNameIDRequest, NewEncryptedID),
+ 		"LassoSaml2EncryptedElement", NULL, NULL},
+ 	{ "Terminate", SNIPPET_NODE,
+diff --git a/lasso/xml/saml-2.0/samlp2_name_id_mapping_request.c b/lasso/xml/saml-2.0/samlp2_name_id_mapping_request.c
+index 8b81d0090679bd89b7380a1e54807021c0d3442c..fd23dd3df2dd950490499e36545778a7eafaff1b 100644
+--- a/lasso/xml/saml-2.0/samlp2_name_id_mapping_request.c
++++ b/lasso/xml/saml-2.0/samlp2_name_id_mapping_request.c
+@@ -55,9 +55,9 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "BaseID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingRequest, BaseID), NULL,
++	{ "BaseID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_3, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingRequest, BaseID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+-	{ "NameID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingRequest, NameID), NULL,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingRequest, NameID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+ 	{ "EncryptedID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingRequest,
+ 			EncryptedID), NULL, LASSO_SAML2_ASSERTION_PREFIX,
+diff --git a/lasso/xml/saml-2.0/samlp2_name_id_mapping_response.c b/lasso/xml/saml-2.0/samlp2_name_id_mapping_response.c
+index 101aa86373c5aeac1a398a6de5daaa751796d1db..1374e0ab8f2854ea05400670625589b2aed3eb29 100644
+--- a/lasso/xml/saml-2.0/samlp2_name_id_mapping_response.c
++++ b/lasso/xml/saml-2.0/samlp2_name_id_mapping_response.c
+@@ -51,7 +51,7 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "NameID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingResponse, NameID), NULL,
++	{ "NameID", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingResponse, NameID), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+ 	{ "EncryptedID", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlp2NameIDMappingResponse,
+ 			EncryptedID), NULL, LASSO_SAML2_ASSERTION_PREFIX,
+diff --git a/lasso/xml/saml-2.0/samlp2_requested_authn_context.c b/lasso/xml/saml-2.0/samlp2_requested_authn_context.c
+index c5afd625b0377f8ee848b75cfa58fc2604b46e75..b19035979d8b39726fc2808695ff9be12d7e99e0 100644
+--- a/lasso/xml/saml-2.0/samlp2_requested_authn_context.c
++++ b/lasso/xml/saml-2.0/samlp2_requested_authn_context.c
+@@ -48,13 +48,19 @@
+ 
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "AuthnContextClassRef", SNIPPET_LIST_CONTENT,
++	{ "AuthnContextClassRef", SNIPPET_LIST_CONTENT | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
++		G_STRUCT_OFFSET(LassoSamlp2RequestedAuthnContext, AuthnContextClassRef),
++		NULL, LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF },
++	{ "AuthnContextDeclRef", SNIPPET_LIST_CONTENT | SNIPPET_MANDATORY | SNIPPET_JUMP_ON_MATCH | SNIPPET_JUMP_2,
++		G_STRUCT_OFFSET(LassoSamlp2RequestedAuthnContext, AuthnContextDeclRef),
++		NULL, LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF },
++	{ "AuthnContextClassRef", SNIPPET_LIST_CONTENT | SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSamlp2RequestedAuthnContext, AuthnContextClassRef),
+ 		NULL, LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF },
+ 	{ "AuthnContextDeclRef", SNIPPET_LIST_CONTENT,
+ 		G_STRUCT_OFFSET(LassoSamlp2RequestedAuthnContext, AuthnContextDeclRef),
+ 		NULL, LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF },
+-	{ "Comparison", SNIPPET_CONTENT,
++	{ "Comparison", SNIPPET_CONTENT | SNIPPET_OPTIONAL,
+ 		G_STRUCT_OFFSET(LassoSamlp2RequestedAuthnContext, Comparison), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+diff --git a/lasso/xml/saml-2.0/samlp2_response.c b/lasso/xml/saml-2.0/samlp2_response.c
+index 411e8cc8d2d1d3d584b02358fde15f3a9efa43e5..ee2ee5dec50e910357e894bbec597d51ea95ffc3 100644
+--- a/lasso/xml/saml-2.0/samlp2_response.c
++++ b/lasso/xml/saml-2.0/samlp2_response.c
+@@ -57,8 +57,9 @@ extern LassoNode* lasso_assertion_encrypt(LassoSaml2Assertion *assertion, char *
+ static struct XmlSnippet schema_snippets[] = {
+ 	{ "Assertion", SNIPPET_LIST_NODES, G_STRUCT_OFFSET(LassoSamlp2Response, Assertion), NULL,
+ 		LASSO_SAML2_ASSERTION_PREFIX, LASSO_SAML2_ASSERTION_HREF},
+-	{ "EncryptedAssertion", SNIPPET_LIST_NODES, G_STRUCT_OFFSET(LassoSamlp2Response,
+-			EncryptedAssertion), NULL, LASSO_SAML2_ASSERTION_PREFIX,
++	{ "EncryptedAssertion", SNIPPET_LIST_NODES | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
++		G_STRUCT_OFFSET(LassoSamlp2Response, EncryptedAssertion),
++		NULL, LASSO_SAML2_ASSERTION_PREFIX,
+ 	LASSO_SAML2_ASSERTION_HREF},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+diff --git a/lasso/xml/saml_advice.c b/lasso/xml/saml_advice.c
+index dd1fd6771ef15a9b7ade59fc198183f7b58cf472..f2fe607b0fbd7d8122cc648ab5bc7e4700ecc16a 100644
+--- a/lasso/xml/saml_advice.c
++++ b/lasso/xml/saml_advice.c
+@@ -55,7 +55,7 @@
+ static struct XmlSnippet schema_snippets[] = {
+ 	{ "AssertionIDReference", SNIPPET_LIST_CONTENT,
+ 		G_STRUCT_OFFSET(LassoSamlAdvice, AssertionIDReference), NULL, NULL, NULL},
+-	{ "Assertion", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlAdvice, Assertion), NULL, NULL, NULL},
++	{ "Assertion", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1, G_STRUCT_OFFSET(LassoSamlAdvice, Assertion), NULL, NULL, NULL},
+ 	{NULL, 0, 0, NULL, NULL, NULL}
+ };
+ 
+diff --git a/lasso/xml/saml_assertion.c b/lasso/xml/saml_assertion.c
+index c87fe81e3113449d0200dcae3ec51bbc6cda4319..43bab051ff5b81fc9e725d8e238dcc6e0dc157e3 100644
+--- a/lasso/xml/saml_assertion.c
++++ b/lasso/xml/saml_assertion.c
+@@ -74,9 +74,9 @@ static struct XmlSnippet schema_snippets[] = {
+ 	{ "Conditions", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlAssertion, Conditions), NULL, NULL, NULL},
+ 	{ "Advice", SNIPPET_NODE, G_STRUCT_OFFSET(LassoSamlAssertion, Advice), NULL, NULL, NULL},
+ 	{ "SubjectStatement", SNIPPET_NODE,G_STRUCT_OFFSET(LassoSamlAssertion, SubjectStatement), NULL, NULL, NULL},
+-	{ "AuthenticationStatement", SNIPPET_NODE,
++	{ "AuthenticationStatement", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_1,
+ 		G_STRUCT_OFFSET(LassoSamlAssertion, AuthenticationStatement), NULL, NULL, NULL},
+-	{ "AttributeStatement", SNIPPET_NODE,
++	{ "AttributeStatement", SNIPPET_NODE | SNIPPET_JUMP_ON_MATCH | SNIPPET_BACK_2,
+ 		G_STRUCT_OFFSET(LassoSamlAssertion, AttributeStatement), NULL, NULL, NULL},
+ 	{ "Signature", SNIPPET_SIGNATURE,
+ 		G_STRUCT_OFFSET(LassoSamlAssertion, AssertionID), NULL, LASSO_DS_PREFIX, LASSO_DS_HREF},
+diff --git a/lasso/xml/saml_subject.c b/lasso/xml/saml_subject.c
+index 36226cb99adf4e24c3622b106eed20a83f3720d6..a9203332092fd2a4e6d26971a8f0c0ec8e30d3fe 100644
+--- a/lasso/xml/saml_subject.c
++++ b/lasso/xml/saml_subject.c
+@@ -50,7 +50,7 @@
+ /*****************************************************************************/
+ 
+ static struct XmlSnippet schema_snippets[] = {
+-	{ "NameIdentifier", SNIPPET_NODE,
++	{ "NameIdentifier", SNIPPET_NODE | SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_2,
+ 		G_STRUCT_OFFSET(LassoSamlSubject, NameIdentifier), NULL, NULL, NULL},
+ 	{ "EncryptedNameIdentifier", SNIPPET_NODE,
+ 		G_STRUCT_OFFSET(LassoSamlSubject, EncryptedNameIdentifier),
+-- 
+2.1.0
+

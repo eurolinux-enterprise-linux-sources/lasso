@@ -1,0 +1,183 @@
+From a27d1686b387a045607b5f0802001ea8863342cb Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sat, 7 Jun 2014 09:29:58 +0200
+Subject: [PATCH 1/2] xml: support xsd:choices by allowing to rewind or advance
+ after match or miss of a snippet
+
+---
+ lasso/xml/private.h | 26 ++++++++++++++++++++++++-
+ lasso/xml/xml.c     | 56 +++++++++++++++++++++++++++++++++++++++--------------
+ 2 files changed, 66 insertions(+), 16 deletions(-)
+
+diff --git a/lasso/xml/private.h b/lasso/xml/private.h
+index 450ec2644112d6a6931de21eea8b6d10441b90fb..f1b0e94b58eef79501b9264c4da96b8cb049b548 100644
+--- a/lasso/xml/private.h
++++ b/lasso/xml/private.h
+@@ -49,7 +49,23 @@ typedef enum {
+ 	SNIPPET_LIST_XMLNODES,
+ 	SNIPPET_XMLNODE,
+ 	SNIPPET_COLLECT_NAMESPACES,
+-
++	SNIPPET_JUMP_OFFSET_SIGN = 1 << 19,
++	SNIPPET_JUMP_OFFSET_SHIFT = 15,
++	SNIPPET_JUMP_OFFSET_MASK = 0x0f << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_1 = 1 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_2 = 2 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_3 = 3 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_4 = 4 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_5 = 5 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_6 = 6 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_JUMP_7 = 7 << SNIPPET_JUMP_OFFSET_SHIFT,
++	SNIPPET_BACK_1 = 1 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_2 = 2 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_3 = 3 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_4 = 4 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_5 = 5 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_6 = 6 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
++	SNIPPET_BACK_7 = 7 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+ 	/* transformers for content transformation */
+ 	SNIPPET_STRING  = 1 << 0, /* default, can be omitted */
+ 	SNIPPET_BOOLEAN = 1 << 20,
+@@ -62,8 +78,16 @@ typedef enum {
+ 	SNIPPET_KEEP_XMLNODE = 1 << 27, /* force keep xmlNode */
+ 	SNIPPET_PRIVATE = 1 << 28, /* means that the offset is relative to a private extension */
+ 	SNIPPET_MANDATORY = 1 << 29, /* means that the element cardinality is at least 1 */
++	SNIPPET_JUMP_ON_MATCH = 1 << 30,
++	SNIPPET_JUMP_ON_MISS = 1 << 31,
++	SNIPPET_JUMP = SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_ON_MATCH,
++
+ } SnippetType;
+ 
++#define SNIPPET_JUMP_OFFSET(type) ((type & SNIPPET_JUMP_OFFSET_SIGN) ? \
++		                      (-(type & SNIPPET_JUMP_OFFSET_MASK) >> SNIPPET_JUMP_OFFSET_SHIFT) \
++		                    : ((type & SNIPPET_JUMP_OFFSET_MASK) >> SNIPPET_JUMP_OFFSET_SHIFT))
++
+ typedef enum {
+ 	NO_OPTION = 0,
+ 	NO_SINGLE_REFERENCE = 1 /* SAML signature should contain a single reference,
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 7ffa2d27e37b8a5e1798db0812f0c90470f80454..436dcc198beddf7069c7de591786f55dde19c840 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -1597,8 +1597,19 @@ lasso_node_impl_init_from_xml(LassoNode *node, xmlNode *xmlnode)
+ 			gboolean match = FALSE;
+ 			struct XmlSnippet *matched_snippet = NULL;
+ 
+-#define ADVANCE \
+-				snippet++; \
++#define ADVANCE_MATCH \
++				if (snippet->type & SNIPPET_JUMP_ON_MATCH) { \
++					snippet += (ptrdiff_t)SNIPPET_JUMP_OFFSET(snippet->type); \
++				}  else { \
++					snippet++; \
++				} \
++				next_node_snippet(&class_iter, &snippet);
++#define ADVANCE_MISS \
++				if (snippet->type & SNIPPET_JUMP_ON_MISS) { \
++					snippet += (ptrdiff_t)SNIPPET_JUMP_OFFSET(snippet->type); \
++				}  else { \
++					snippet++; \
++				} \
+ 				next_node_snippet(&class_iter, &snippet);
+ #define ERROR \
+ 				error("Element %s:%s cannot be parsed", \
+@@ -1617,15 +1628,15 @@ lasso_node_impl_init_from_xml(LassoNode *node, xmlNode *xmlnode)
+ 					g_type = G_TYPE_FROM_CLASS(class);
+ 					value = SNIPPET_STRUCT_MEMBER_P(node, g_type, snippet);
+ 					list = value;
+-					if (! multiple) {
+-						ADVANCE;
++					if (! multiple || (snippet->type & SNIPPET_JUMP_ON_MATCH)) {
++						ADVANCE_MATCH;
+ 					}
+ 					break;
+ 				} else {
+ 					if (mandatory) {
+ 						break;
+ 					} else {
+-						ADVANCE;
++						ADVANCE_MISS;
+ 					}
+ 				}
+ 			}
+@@ -2726,22 +2737,29 @@ lasso_node_build_xmlNode_from_snippets(LassoNode *node, LassoNodeClass *class, x
+ 
+ 	g_type = G_TYPE_FROM_CLASS(class);
+ 
+-	for (snippet = snippets; snippet && snippet->name; snippet++) {
++	snippet = snippets;
++	while (snippet && snippet->name) {
+ 		void *value = NULL;
+-		int int_value;
+-		gboolean bool_value;
+-		char *str;
++		int int_value = 0;
++		gboolean bool_value = FALSE;
++		char *str = NULL;
+ 		gboolean optional = snippet->type & SNIPPET_OPTIONAL;
+ 		gboolean optional_neg = snippet->type & SNIPPET_OPTIONAL_NEG;
++		gboolean multiple = is_snippet_multiple(snippet);
+ 
+ 		if (! snippet->offset && ! (snippet->type & SNIPPET_PRIVATE)) {
+-			continue;
++			goto advance;
+ 		}
+ 		if (lasso_dump == FALSE && snippet->type & SNIPPET_LASSO_DUMP) {
+-			continue;
++			goto advance;
+ 		}
+ 		if ((snippet->type & 0xff) == SNIPPET_ATTRIBUTE && (snippet->type & SNIPPET_ANY)) {
+ 			snippet_any_attribute = snippet;
++			goto advance;
++		}
++		/* special treatment for 1-* list of nodes, without we would serialize them twice */
++		if (multiple && (snippet->type & SNIPPET_JUMP_ON_MATCH && SNIPPET_JUMP_OFFSET(snippet->type) > 0)) {
++			snippet++;
+ 			continue;
+ 		}
+ 
+@@ -2749,22 +2767,22 @@ lasso_node_build_xmlNode_from_snippets(LassoNode *node, LassoNodeClass *class, x
+ 		if (snippet->type & SNIPPET_INTEGER) {
+ 			int_value = SNIPPET_STRUCT_MEMBER(int, node, g_type, snippet);
+ 			if (int_value == 0 && optional) {
+-				continue;
++				goto advance;
+ 			}
+ 			if (int_value == -1 && optional_neg) {
+-				continue;
++				goto advance;
+ 			}
+ 			str = g_strdup_printf("%i", int_value);
+ 		} else if (snippet->type & SNIPPET_BOOLEAN) {
+ 			bool_value = SNIPPET_STRUCT_MEMBER(gboolean, node, g_type, snippet);
+ 			if (bool_value == FALSE  && optional) {
+-				continue;
++				goto advance;
+ 			}
+ 			str = bool_value ? "true" : "false";
+ 		} else {
+ 			value = SNIPPET_STRUCT_MEMBER(void *, node, g_type, snippet);
+ 			if (value == NULL) {
+-				continue;
++				goto advance;
+ 			}
+ 			str = value;
+ 		}
+@@ -2847,6 +2865,14 @@ lasso_node_build_xmlNode_from_snippets(LassoNode *node, LassoNodeClass *class, x
+ 		if (snippet->type & SNIPPET_INTEGER) {
+ 			lasso_release(str);
+ 		}
++	advance:
++		if ((snippet->type & SNIPPET_JUMP_ON_MATCH) && SNIPPET_JUMP_OFFSET(snippet->type) > 0 && value) {
++			snippet += SNIPPET_JUMP_OFFSET(snippet->type);
++		} else if (!value && (snippet->type & SNIPPET_JUMP_ON_MISS) && SNIPPET_JUMP_OFFSET(snippet->type) > 0 && value) {
++			snippet += SNIPPET_JUMP_OFFSET(snippet->type);
++		} else {
++			snippet++;
++		}
+ 	}
+ 
+ 	if (snippet_any_attribute) {
+-- 
+2.1.0
+
