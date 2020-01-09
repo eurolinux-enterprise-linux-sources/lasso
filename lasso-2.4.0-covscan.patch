@@ -1,0 +1,926 @@
+From b6a3ec78a0f6b8b5fda9dcee969785745376bc77 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Fri, 6 Jun 2014 17:54:32 -0400
+Subject: [PATCH 01/18] Be correct in dealing with varargs
+
+Although in this cases it may be safe to omit va_end() that is not generally
+so with an arbitrary compiler on an arbitrary platform.
+
+Quoting from the spec: "Each invocation of va_start() must be matched by
+a corresponding invocation of va_end() in the same function."
+note the "must"
+
+Checker tools like Coverity complain if va_start() is not always paired with
+va_end(), so this patch mutes them.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/tools.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index 2243e08..7f44f33 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -1716,6 +1716,7 @@ static void __xmlWarningFunc(G_GNUC_UNUSED void *userData, const char *msg, ...)
+ 
+ 	va_start(arg_ptr, msg);
+ 	xml_logv(G_LOG_LEVEL_WARNING, msg, arg_ptr);
++        va_end(arg_ptr);
+ }
+ 
+ static void __xmlErrorFunc(G_GNUC_UNUSED void *userData, const char *msg, ...) {
+@@ -1723,6 +1724,7 @@ static void __xmlErrorFunc(G_GNUC_UNUSED void *userData, const char *msg, ...) {
+ 
+ 	va_start(arg_ptr, msg);
+ 	xml_logv(G_LOG_LEVEL_CRITICAL, msg, arg_ptr);
++        va_end(arg_ptr);
+ }
+ 
+ /**
+-- 
+1.9.3
+
+
+From 5aa184b6b4e6608851ebf4a2fefeecafb5640486 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Sun, 8 Jun 2014 14:43:04 -0400
+Subject: [PATCH 02/18] Fixes for unchecked return values
+
+Coverity complains that in a number of places errors are not checked.
+Some of them are ok not to check so put a silencing (void).
+Check errors that need to be checked.
+
+Coverity also complains g_malloc() return is never checked but given it is
+never checked anywahere let it be for now.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/saml-2.0/login.c | 6 +++++-
+ lasso/xml/xml.c        | 3 +++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/lasso/saml-2.0/login.c b/lasso/saml-2.0/login.c
+index 4462f3c..40093c9 100644
+--- a/lasso/saml-2.0/login.c
++++ b/lasso/saml-2.0/login.c
+@@ -948,10 +948,14 @@ gint
+ lasso_saml20_login_build_request_msg(LassoLogin *login)
+ {
+ 	LassoProfile *profile;
++	lasso_error_t rc = 0;
+ 
+ 	profile = &login->parent;
+ 	if (_lasso_login_must_sign_non_authn_request(login)) {
+-		lasso_profile_saml20_setup_message_signature(profile, profile->request);
++		rc = lasso_profile_saml20_setup_message_signature(profile, profile->request);
++		if (rc != 0) {
++			return rc;
++		}
+ 	} else {
+ 		lasso_node_remove_signature(profile->request);
+ 	}
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 4485d47..d29fec6 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -1079,6 +1079,9 @@ lasso_node_set_encryption(LassoNode *node, xmlSecKey *encryption_public_key,
+ 	g_return_if_fail(LASSO_IS_NODE(node));
+ 	if (encryption_public_key) {
+ 		custom_element = _lasso_node_get_custom_element_or_create(node);
++		if (! custom_element) {
++			return;
++		}
+ 	} else {
+ 		custom_element = _lasso_node_get_custom_element(node);
+ 		if (! custom_element) {
+-- 
+1.9.3
+
+
+From 0238e8a9869a3a11248b2c56108b2ba73c82b9ee Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Sun, 8 Jun 2014 14:51:29 -0400
+Subject: [PATCH 03/18] Fix error checking in xml.c
+
+Coverity was complaining that 'integer' was being used without
+initialization (from the caller). Turns out it was erroneously used
+to test the result instead of the just sourced 'what'.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/xml.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index d29fec6..253546d 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -1270,7 +1270,7 @@ lasso_get_integer_attribute(xmlNode *node, xmlChar *attribute_name, xmlChar *ns_
+ 		goto cleanup;
+ 	if (! lasso_string_to_xsd_integer((char*)content, &what))
+ 		goto cleanup;
+-	if (*integer < low || *integer >= high)
++	if (what < low || what >= high)
+ 		goto cleanup;
+ 	*integer = what;
+ 	rc = TRUE;
+-- 
+1.9.3
+
+
+From 86328f293700ae0fefd28647701905cfdd6aa51f Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 11:04:44 -0400
+Subject: [PATCH 04/18] Fix format check for date
+
+Coverity was complaining that tm was used uninitialized, but the truth is
+that a third error condition where the string passed in matches no valid
+format was not handled. Just return an error in that case.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/tools.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index 7f44f33..a677e04 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -225,7 +225,9 @@ lasso_iso_8601_gmt_to_time_t(const char *xsdtime)
+ 		if (strptime_ret == NULL) {
+ 			return -1;
+ 		}
+-	}
++	} else {
++            return -1;
++        }
+ 	return timegm(&tm);
+ }
+ 
+-- 
+1.9.3
+
+
+From 661f81014e38ea4897c2ad5f340a45eb2dbef476 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 11:08:58 -0400
+Subject: [PATCH 05/18] Fix uninitialized values found by Coverity
+
+These values where being used without being initialized at least in some edge
+cases. Make Coverity happy by properly initializing them.
+Some of these are real bugs, not just silencing a tool.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/saml-2.0/provider.c | 4 ++--
+ lasso/xml/tools.c         | 2 +-
+ lasso/xml/xml.c           | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lasso/saml-2.0/provider.c b/lasso/saml-2.0/provider.c
+index 314ca03..e6afe82 100644
+--- a/lasso/saml-2.0/provider.c
++++ b/lasso/saml-2.0/provider.c
+@@ -377,7 +377,7 @@ load_descriptor(xmlNode *xmlnode, LassoProvider *provider, LassoProviderRole rol
+ 	xmlNode *t;
+ 	xmlChar *value;
+ 	LassoProviderPrivate *pdata = provider->private_data;
+-	char *token, *saveptr;
++	char *token, *saveptr = NULL;
+ 	int counter = 0;
+ 	
+ 	/* check protocol support enumeration */
+@@ -444,7 +444,7 @@ load_descriptor(xmlNode *xmlnode, LassoProvider *provider, LassoProviderRole rol
+ gboolean
+ lasso_saml20_provider_load_metadata(LassoProvider *provider, xmlNode *root_node)
+ {
+-	xmlNode *node, *descriptor_node;
++	xmlNode *node = NULL, *descriptor_node;
+ 	xmlChar *providerID;
+ 	xmlChar providerID_cpy[150] = "";
+ 
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index a677e04..531bad3 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -1925,7 +1925,7 @@ char*
+ lasso_url_add_parameters(char *url,
+ 		gboolean free, ...)
+ {
+-	char *old_url = url, *new_url;
++	char *old_url = url, *new_url = NULL;
+ 	xmlChar *encoded_key, *encoded_value;
+ 	va_list ap;
+ 
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 253546d..b881422 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -2728,7 +2728,7 @@ lasso_node_build_xmlNode_from_snippets(LassoNode *node, LassoNodeClass *class, x
+ 	g_type = G_TYPE_FROM_CLASS(class);
+ 
+ 	for (snippet = snippets; snippet && snippet->name; snippet++) {
+-		void *value;
++		void *value = NULL;
+ 		int int_value;
+ 		gboolean bool_value;
+ 		char *str;
+-- 
+1.9.3
+
+
+From 899f5c8880b36fe6a4a27940ea92cf2361899133 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 12:34:20 -0400
+Subject: [PATCH 06/18] Fix boundary check
+
+Coverity was marking this as an array overun as the check would never be
+possible and wuld allow any value for query_request_type, including "unset"
+wihch is 0.
+fix the boundary checks.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/saml-2.0/assertion_query.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lasso/saml-2.0/assertion_query.c b/lasso/saml-2.0/assertion_query.c
+index 40fa47d..d58ab13 100644
+--- a/lasso/saml-2.0/assertion_query.c
++++ b/lasso/saml-2.0/assertion_query.c
+@@ -55,7 +55,7 @@ _lasso_assertion_query_type_to_protocol_type(LassoAssertionQueryRequestType quer
+ 		LASSO_MD_PROTOCOL_TYPE_ATTRIBUTE,
+ 		LASSO_MD_PROTOCOL_TYPE_AUTHZ, };
+ 
+-	if (query_request_type < LASSO_ASSERTION_QUERY_REQUEST_TYPE_ASSERTION_ID &&
++	if (query_request_type < LASSO_ASSERTION_QUERY_REQUEST_TYPE_ASSERTION_ID ||
+ 			query_request_type > LASSO_ASSERTION_QUERY_REQUEST_TYPE_AUTHZ_DECISION) {
+ 		return -1;
+ 	}
+-- 
+1.9.3
+
+
+From 80757431b36566655ca2e494a4765ffd32027efb Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 12:44:48 -0400
+Subject: [PATCH 07/18] Missing check for Sig_Alg value
+
+Initialize the sig_alg value to NULL (The compilers was complaining it may
+be used initialized), but also make sure to check the re is any sig_alg at
+all, otherwise return a proper error.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/tools.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index 531bad3..5ae1291 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -800,7 +800,7 @@ lasso_saml2_query_verify_signature(const char *query, const xmlSecKey *sender_pu
+ 	int n = 0;
+ 	char *saml_request_response = NULL;
+ 	char *relaystate = NULL;
+-	char *sig_alg, *usig_alg = NULL;
++	char *sig_alg = NULL, *usig_alg = NULL;
+ 	lasso_error_t rc = 0;
+ 
+ 	lasso_return_val_if_fail(query != NULL, LASSO_PARAM_ERROR_INVALID_VALUE);
+@@ -857,6 +857,9 @@ lasso_saml2_query_verify_signature(const char *query, const xmlSecKey *sender_pu
+ 		goto_cleanup_with_rc(LASSO_PROFILE_ERROR_INVALID_QUERY);
+ 	}
+ 
++	if (! sig_alg) {
++		goto_cleanup_with_rc(LASSO_DS_ERROR_INVALID_SIGALG);
++	}
+ 	if (! b64_signature) {
+ 		goto_cleanup_with_rc(LASSO_DS_ERROR_SIGNATURE_NOT_FOUND);
+ 	}
+-- 
+1.9.3
+
+
+From 1f97a06a01de7f901045be297a8244614191e552 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 12:52:20 -0400
+Subject: [PATCH 08/18] Fix some uninitialized value
+
+The compiler complain about these values not being initialized.
+come of them do not really matter as they are only really used when
+later initialized in the code and the code paths would not use them
+if not initialized in a previous block, however some of these seem
+real issues.
+In all cases make the compiler happy so we get less noise in the build
+and less false positives in code chckers.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/id-ff/provider.c | 2 +-
+ lasso/saml-2.0/login.c | 2 +-
+ lasso/xml/tools.c      | 2 +-
+ lasso/xml/xml.c        | 2 +-
+ 4 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lasso/id-ff/provider.c b/lasso/id-ff/provider.c
+index 275207c..9ab9098 100644
+--- a/lasso/id-ff/provider.c
++++ b/lasso/id-ff/provider.c
+@@ -1773,7 +1773,7 @@ lasso_provider_add_key(LassoProvider *provider, LassoKey *key, gboolean after)
+ 	LassoSignatureContext context;
+ 	lasso_error_t rc = 0;
+ 	GList **list = NULL;
+-	xmlSecKey *xml_sec_key;
++	xmlSecKey *xml_sec_key = NULL;
+ 
+ 	lasso_bad_param(PROVIDER, provider);
+ 	lasso_bad_param(KEY, key);
+diff --git a/lasso/saml-2.0/login.c b/lasso/saml-2.0/login.c
+index 40093c9..4d33292 100644
+--- a/lasso/saml-2.0/login.c
++++ b/lasso/saml-2.0/login.c
+@@ -1395,7 +1395,7 @@ lasso_saml20_login_build_authn_response_msg(LassoLogin *login)
+ 	LassoProfile *profile;
+ 	LassoProvider *remote_provider = NULL;
+ 	LassoSaml2Assertion *assertion = NULL;
+-	LassoHttpMethod http_method;
++	LassoHttpMethod http_method = LASSO_HTTP_METHOD_NONE;
+ 	char *url = NULL;
+ 	int rc = 0;
+ 
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index 5ae1291..2e575b8 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -483,7 +483,7 @@ lasso_query_sign(char *query, LassoSignatureContext context)
+ 	const xmlChar *algo_href = NULL;
+ 	char *hmac_key;
+ 	size_t hmac_key_length;
+-	const EVP_MD *md;
++	const EVP_MD *md = NULL;
+ 	xmlSecKey *key;
+ 	xmlSecKeyData *key_data;
+ 	unsigned int sigret_size = 0;
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index b881422..0234bb9 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -1417,7 +1417,7 @@ lasso_node_impl_init_from_xml(LassoNode *node, xmlNode *xmlnode)
+ 	SnippetType type;
+ 	struct XmlSnippet *snippet_any = NULL;
+ 	struct XmlSnippet *snippet_any_attribute = NULL;
+-	GType g_type_collect_namespaces, g_type_any, g_type_any_attribute;
++	GType g_type_collect_namespaces = 0, g_type_any = 0, g_type_any_attribute = 0;
+ 	struct XmlSnippet *snippet_collect_namespaces = NULL;
+ 	struct XmlSnippet *snippet_signature = NULL;
+ 	gboolean keep_xmlnode = FALSE;
+-- 
+1.9.3
+
+
+From be02981ff1f3f3829b38dc14b028c7de55dfda77 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 13:04:47 -0400
+Subject: [PATCH 09/18] Fix confusing loop test
+
+Coverity was marking the check for tsnippet after the while loop,
+confused by the check. Make it more readable, and in the process
+make checkers happy too.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/xml.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 0234bb9..6e61cc0 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -2927,7 +2927,7 @@ find_path(LassoNode *node, char *path, LassoNode **value_node, LassoNodeClass **
+ 
+ 	*class_p = NULL;
+ 	s = path;
+-	while (s-1) {
++	while (s) {
+ 		t = strchr(s, '/');
+ 		if (t) *t = 0;
+ 		tsnippet = find_xml_snippet_by_name(tnode, s, class_p);
+@@ -2936,8 +2936,11 @@ find_path(LassoNode *node, char *path, LassoNode **value_node, LassoNodeClass **
+ 					tsnippet);
+ 			if (tnode == NULL)
+ 				return FALSE;
++
++			s = t+1;
++		} else {
++			s = NULL;
+ 		}
+-		s = t+1;
+ 	}
+ 
+ 	if (tsnippet == NULL)
+-- 
+1.9.3
+
+
+From b6b458e000ebb3e441000e002598782ce31111a6 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 13:25:09 -0400
+Subject: [PATCH 10/18] Trim dead code
+
+These conditions can never be reached as the list is filtered with
+and and to the value of 0xff, so just drop them, they are misleading.
+(Also silences checkers which were screaming of deadcode, for each and
+every unmatchable value ...)
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/xml.c | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 6e61cc0..981d6dc 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -2842,16 +2842,6 @@ lasso_node_build_xmlNode_from_snippets(LassoNode *node, LassoNodeClass *class, x
+ 				break;
+ 			case SNIPPET_COLLECT_NAMESPACES:
+ 				break;
+-			case SNIPPET_INTEGER:
+-			case SNIPPET_BOOLEAN:
+-			case SNIPPET_LASSO_DUMP:
+-			case SNIPPET_OPTIONAL:
+-			case SNIPPET_OPTIONAL_NEG:
+-			case SNIPPET_ALLOW_TEXT:
+-			case SNIPPET_ANY:
+-			case SNIPPET_KEEP_XMLNODE:
+-			case SNIPPET_PRIVATE:
+-			case SNIPPET_MANDATORY:
+ 			case SNIPPET_UNUSED1:
+ 				g_assert_not_reached();
+ 		}
+-- 
+1.9.3
+
+
+From 4789e8d4d68eb4134292e7fa6d6425db91b501f8 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 13:42:19 -0400
+Subject: [PATCH 11/18] Trim unused code
+
+Clang complains these values are never used, avoid even assigning them.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/id-ff/provider.c   | 2 +-
+ lasso/saml-2.0/login.c   | 2 --
+ lasso/saml-2.0/profile.c | 2 +-
+ lasso/xml/xml.c          | 3 +--
+ 4 files changed, 3 insertions(+), 6 deletions(-)
+
+diff --git a/lasso/id-ff/provider.c b/lasso/id-ff/provider.c
+index 9ab9098..397b5e6 100644
+--- a/lasso/id-ff/provider.c
++++ b/lasso/id-ff/provider.c
+@@ -1807,7 +1807,7 @@ lasso_provider_set_server_signing_key(LassoProvider *provider,
+ 		LassoKey *key)
+ {
+ 	lasso_error_t rc = 0;
+-	LassoSignatureContext context = LASSO_SIGNATURE_CONTEXT_NONE;
++	LassoSignatureContext context;
+ 
+ 	lasso_bad_param(PROVIDER, provider);
+ 	lasso_bad_param(KEY, key);
+diff --git a/lasso/saml-2.0/login.c b/lasso/saml-2.0/login.c
+index 4d33292..0e514b4 100644
+--- a/lasso/saml-2.0/login.c
++++ b/lasso/saml-2.0/login.c
+@@ -731,8 +731,6 @@ lasso_saml20_login_build_assertion(LassoLogin *login,
+ 	goto_cleanup_if_fail_with_rc(LASSO_IS_SAMLP2_RESPONSE(profile->response),
+ 			LASSO_PROFILE_ERROR_MISSING_RESPONSE);
+ 
+-	response = (LassoSamlp2Response*)profile->response;
+-
+ 	assertion = LASSO_SAML2_ASSERTION(lasso_saml2_assertion_new());
+ 	assertion->ID = lasso_build_unique_id(32);
+ 	lasso_assign_string(assertion->Version, "2.0");
+diff --git a/lasso/saml-2.0/profile.c b/lasso/saml-2.0/profile.c
+index cf3f45c..6485482 100644
+--- a/lasso/saml-2.0/profile.c
++++ b/lasso/saml-2.0/profile.c
+@@ -1165,7 +1165,7 @@ lasso_saml20_profile_build_http_redirect(LassoProfile *profile,
+ {
+ 	char *query = NULL;
+ 	int rc = 0;
+-	LassoSignatureContext context = LASSO_SIGNATURE_CONTEXT_NONE;
++	LassoSignatureContext context;
+ 
+ 	goto_cleanup_if_fail_with_rc (url != NULL, LASSO_PROFILE_ERROR_UNKNOWN_PROFILE_URL);
+ 	/* if message is signed, remove XML signature, add query signature */
+diff --git a/lasso/xml/xml.c b/lasso/xml/xml.c
+index 981d6dc..7ffa2d2 100644
+--- a/lasso/xml/xml.c
++++ b/lasso/xml/xml.c
+@@ -792,7 +792,7 @@ xmlNode*
+ lasso_node_get_xmlNode(LassoNode *node, gboolean lasso_dump)
+ {
+ 	xmlNode *xmlnode = NULL;
+-	LassoSignatureContext context = LASSO_SIGNATURE_CONTEXT_NONE;
++	LassoSignatureContext context;
+ 	LassoNodeClassData *node_data;
+ 
+ 	g_return_val_if_fail (LASSO_IS_NODE(node), NULL);
+@@ -1764,7 +1764,6 @@ lasso_node_impl_init_from_xml(LassoNode *node, xmlNode *xmlnode)
+ 					BAD_CAST LASSO_LIB_HREF, &what, LASSO_SIGNATURE_TYPE_NONE+1,
+ 					LASSO_SIGNATURE_TYPE_LAST))
+ 				break;
+-			type = what;
+ 			private_key_password = xmlGetNsProp(xmlnode, LASSO_PRIVATE_KEY_PASSWORD_ATTRIBUTE,
+ 				BAD_CAST LASSO_LIB_HREF);
+ 			if (! private_key)
+-- 
+1.9.3
+
+
+From f91f4b4b8f31700858d6069a7b10afa5054f27de Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 13:50:10 -0400
+Subject: [PATCH 12/18] Consistently check dsig_reference_ctx
+
+Check if this is not NULL in all cases, to avoid NULL pointer dereference.
+Found by clang
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/tools.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index 2e575b8..afbb8b6 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -1382,6 +1382,7 @@ lasso_verify_signature(xmlNode *signed_node, xmlDoc *doc, const char *id_attr_na
+ 			lasso_strisequal((char*)dsig_reference_ctx->uri, reference_uri);
+ 		ok |= (signature_verification_option & EMPTY_URI)
+ 			&& xmlDocGetRootElement(doc) == signed_node
++			&& dsig_reference_ctx != NULL
+ 			&& lasso_strisequal((char*)dsig_reference_ctx->uri, "");
+ 		goto_cleanup_if_fail_with_rc(ok,
+ 				LASSO_DS_ERROR_INVALID_REFERENCE_FOR_SAML);
+@@ -1393,7 +1394,8 @@ lasso_verify_signature(xmlNode *signed_node, xmlDoc *doc, const char *id_attr_na
+ 		for (i = 0; i < size; ++i) {
+ 
+ 			dsig_reference_ctx = (xmlSecDSigReferenceCtx*)xmlSecPtrListGetItem(&(dsigCtx->signedInfoReferences), i);
+-			if (dsig_reference_ctx->uri == NULL) {
++			if (dsig_reference_ctx == NULL ||
++                            dsig_reference_ctx->uri == NULL) {
+ 				message(G_LOG_LEVEL_CRITICAL, "dsig_reference_ctx->uri cannot be null");
+ 				continue;
+ 			}
+-- 
+1.9.3
+
+
+From 86bfc84ba1a424cd62cf2f59011a56aa632496c8 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 14:00:34 -0400
+Subject: [PATCH 13/18] Properly exit on error
+
+The rc error was being set but then it was being ignored.
+Get out immediately if an Issuer can't be found.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/saml-2.0/login.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/lasso/saml-2.0/login.c b/lasso/saml-2.0/login.c
+index 0e514b4..e3d0ff7 100644
+--- a/lasso/saml-2.0/login.c
++++ b/lasso/saml-2.0/login.c
+@@ -1119,6 +1119,7 @@ lasso_saml20_login_check_assertion_signature(LassoLogin *login,
+ 		/* Issuer format is not entity */
+ 	{
+ 		rc = LASSO_PROFILE_ERROR_MISSING_ISSUER;
++		goto cleanup;
+ 	} else {
+ 		remote_provider_id = Issuer->content;
+ 	}
+-- 
+1.9.3
+
+
+From cb7ea06ca587e8db2d67345ff5245981f143ed3a Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 14:09:20 -0400
+Subject: [PATCH 14/18] Rearrange case checking to avoid compiler warnings
+
+The compiler was complaining that 'compa' could be uninitialized.
+USe this occasion to make the code simpler to understand and assign
+actually meaningful values to the variable, even though the proper
+actions are not implemented yet.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/id-ff/login.c    | 24 +++++++++++++++---------
+ lasso/saml-2.0/login.c | 30 ++++++++++++++++++------------
+ 2 files changed, 33 insertions(+), 21 deletions(-)
+
+diff --git a/lasso/id-ff/login.c b/lasso/id-ff/login.c
+index 8c4b9ae..b192dfd 100644
+--- a/lasso/id-ff/login.c
++++ b/lasso/id-ff/login.c
+@@ -1824,16 +1824,16 @@ lasso_login_must_authenticate(LassoLogin *login)
+ 		char *class_ref;
+ 		GList *class_refs = request->RequestAuthnContext->AuthnContextClassRef;
+ 		GList *t1, *t2;
+-		int compa;
++		int compa = -1;
+ 
+ 		if (comparison == NULL || strcmp(comparison, "exact") == 0) {
+ 			compa = 0;
+ 		} else if (strcmp(comparison, "minimum") == 0) {
+ 			message(G_LOG_LEVEL_CRITICAL, "'minimum' comparison is not implemented");
+-			compa = 0;
++			compa = 1;
+ 		} else if (strcmp(comparison, "better") == 0) {
+ 			message(G_LOG_LEVEL_CRITICAL, "'better' comparison is not implemented");
+-			compa = 0;
++			compa = 2;
+ 		}
+ 
+ 		if (class_refs) {
+@@ -1867,15 +1867,21 @@ lasso_login_must_authenticate(LassoLogin *login)
+ 					method = LASSO_LIB_AUTHN_CONTEXT_CLASS_REF_PASSWORD;
+ 				}
+ 
+-				if (compa == 0) { /* exact */
++				switch (compa) {
++				case 1: /* minimum */
++					/* XXX: implement 'minimum' comparison */
++				case 2: /* better */
++					/* XXX: implement 'better' comparison */
++				case 0: /* exact */
+ 					if (strcmp(method, class_ref) == 0) {
+ 						matched = TRUE;
+-						break;
+ 					}
+-				} else if (compa == 1) { /* minimum */
+-					/* XXX: implement 'minimum' comparison */
+-				} else if (compa == 2) { /* better */
+-					/* XXX: implement 'better' comparison */
++					break;
++				default: /* inever reached */
++					break;
++				}
++				if (matched == TRUE) {
++					break;
+ 				}
+ 			}
+ 		}
+diff --git a/lasso/saml-2.0/login.c b/lasso/saml-2.0/login.c
+index e3d0ff7..b5256ce 100644
+--- a/lasso/saml-2.0/login.c
++++ b/lasso/saml-2.0/login.c
+@@ -405,19 +405,19 @@ lasso_saml20_login_must_authenticate(LassoLogin *login)
+ 		GList *class_refs = request->RequestedAuthnContext->AuthnContextClassRef;
+ 		char *class_ref;
+ 		GList *t1, *t2;
+-		int compa;
++		int compa = -1;
+ 
+ 		if (comparison == NULL || lasso_strisequal(comparison,"exact")) {
+ 			compa = 0;
+ 		} else if (lasso_strisequal(comparison,"minimum")) {
+ 			message(G_LOG_LEVEL_CRITICAL, "'minimum' comparison is not implemented");
+-			compa = 0;
++			compa = 1;
+ 		} else if (lasso_strisequal(comparison,"better")) {
+ 			message(G_LOG_LEVEL_CRITICAL, "'better' comparison is not implemented");
+-			compa = 0;
++			compa = 2;
+ 		} else if (lasso_strisequal(comparison,"maximum")) {
+ 			message(G_LOG_LEVEL_CRITICAL, "'maximum' comparison is not implemented");
+-			compa = 0;
++			compa = 3;
+ 		}
+ 
+ 		if (class_refs) {
+@@ -454,17 +454,23 @@ lasso_saml20_login_must_authenticate(LassoLogin *login)
+ 
+ 				method = as->AuthnContext->AuthnContextClassRef;
+ 
+-				if (compa == 0) { /* exact */
+-					if (lasso_strisequal(method,class_ref)) {
+-						matched = TRUE;
+-						break;
+-					}
+-				} else if (compa == 1) { /* minimum */
++				switch (compa) {
++				case 1: /* minimum */
+ 					/* XXX: implement 'minimum' comparison */
+-				} else if (compa == 2) { /* better */
++				case 2: /* better */
+ 					/* XXX: implement 'better' comparison */
+-				} else if (compa == 3) { /* maximum */
++				case 3: /* maximum */
+ 					/* XXX: implement 'maximum' comparison */
++				case 0: /* exact */
++					if (lasso_strisequal(method,class_ref)) {
++						matched = TRUE;
++					}
++					break;
++				default: /* never reached */
++					break;
++				}
++				if (matched == TRUE) {
++					break;
+ 				}
+ 			}
+ 		}
+-- 
+1.9.3
+
+
+From 1b955021a57ab14e930df22f538be0e582cbec1c Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Mon, 9 Jun 2014 15:29:24 -0400
+Subject: [PATCH 15/18] Do not dereference null pointers
+
+Sounds like these should all be boolean 'OR's, otherwise,
+if profile is not in fact a lasso profile then profile->private_data
+will be dereferenced even if it is NULL.
+Found by Clang
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/id-ff/profile.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/lasso/id-ff/profile.c b/lasso/id-ff/profile.c
+index fbdab76..9518b9a 100644
+--- a/lasso/id-ff/profile.c
++++ b/lasso/id-ff/profile.c
+@@ -559,7 +559,7 @@ static LassoNodeClass *parent_class = NULL;
+ void
+ lasso_profile_set_signature_hint(LassoProfile *profile, LassoProfileSignatureHint signature_hint)
+ {
+-	if (! LASSO_IS_PROFILE(profile) && ! profile->private_data)
++	if (! LASSO_IS_PROFILE(profile) || ! profile->private_data)
+ 		return;
+ 	profile->private_data->signature_hint = signature_hint;
+ }
+@@ -576,7 +576,7 @@ LassoProfileSignatureHint
+ lasso_profile_get_signature_hint(LassoProfile *profile)
+ {
+ 	LassoProfileSignatureVerifyHint signature_verify_hint;
+-	if (! LASSO_IS_PROFILE(profile) && ! profile->private_data)
++	if (! LASSO_IS_PROFILE(profile) || ! profile->private_data)
+ 		return LASSO_PROFILE_SIGNATURE_HINT_MAYBE;
+ 	signature_verify_hint = profile->private_data->signature_verify_hint;
+ 	if (signature_verify_hint >= LASSO_PROFILE_SIGNATURE_VERIFY_HINT_LAST) {
+@@ -600,7 +600,7 @@ void
+ lasso_profile_set_signature_verify_hint(LassoProfile *profile,
+ 		LassoProfileSignatureVerifyHint signature_verify_hint)
+ {
+-	if (! LASSO_IS_PROFILE(profile) && ! profile->private_data)
++	if (! LASSO_IS_PROFILE(profile) || ! profile->private_data)
+ 		return;
+ 	if (signature_verify_hint >= LASSO_PROFILE_SIGNATURE_VERIFY_HINT_LAST) {
+ 		message(G_LOG_LEVEL_WARNING, "%i is an invalid argument for " __FUNCTION__,
+@@ -622,7 +622,7 @@ lasso_profile_set_signature_verify_hint(LassoProfile *profile,
+ LassoProfileSignatureVerifyHint
+ lasso_profile_get_signature_verify_hint(LassoProfile *profile)
+ {
+-	if (! LASSO_IS_PROFILE(profile) && ! profile->private_data)
++	if (! LASSO_IS_PROFILE(profile) || ! profile->private_data)
+ 		return LASSO_PROFILE_SIGNATURE_HINT_MAYBE;
+ 	return profile->private_data->signature_verify_hint;
+ }
+-- 
+1.9.3
+
+
+From 99376a3c882e222abba92669611149a3d3651d67 Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Tue, 10 Jun 2014 15:31:46 -0400
+Subject: [PATCH 16/18] Fix potential null dereference errors
+
+Ina  number of cases function inputs are not checked for NULL although
+values may end up with a NULL value and then they are dereferenced
+directly.
+Check values in the function (or the caller) if appropriate.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/id-ff/provider.c   | 1 +
+ lasso/saml-2.0/profile.c | 3 +++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/lasso/id-ff/provider.c b/lasso/id-ff/provider.c
+index 397b5e6..5344cf3 100644
+--- a/lasso/id-ff/provider.c
++++ b/lasso/id-ff/provider.c
+@@ -326,6 +326,7 @@ lasso_provider_get_first_http_method(LassoProvider *provider,
+ 	const gchar *role_prefix;
+ 
+ 	g_return_val_if_fail(LASSO_IS_PROVIDER(provider), LASSO_HTTP_METHOD_NONE);
++	g_return_val_if_fail(remote_provider != NULL, LASSO_HTTP_METHOD_NONE);
+ 	if (provider->private_data->conformance == LASSO_PROTOCOL_SAML_2_0) {
+ 		return lasso_saml20_provider_get_first_http_method(
+ 				provider, remote_provider, protocol_type);
+diff --git a/lasso/saml-2.0/profile.c b/lasso/saml-2.0/profile.c
+index 6485482..106145a 100644
+--- a/lasso/saml-2.0/profile.c
++++ b/lasso/saml-2.0/profile.c
+@@ -933,6 +933,9 @@ lasso_saml20_profile_build_request_msg(LassoProfile *profile, const char *servic
+ 	if (url) {
+ 		lasso_assign_string(((LassoSamlp2RequestAbstract*)profile->request)->Destination,
+ 				url);
++	} else {
++		rc = LASSO_PROFILE_ERROR_UNKNOWN_PROFILE_URL;
++		goto cleanup;
+ 	}
+ 
+ 	switch (method) {
+-- 
+1.9.3
+
+
+From d911a2092f618bb4099925667dd656e0e7bfa0bd Mon Sep 17 00:00:00 2001
+From: Simo Sorce <simo@redhat.com>
+Date: Wed, 11 Jun 2014 21:13:58 -0400
+Subject: [PATCH 17/18] One more uninitialized value
+
+encode_key may be release when not initialized if va_args returns null
+on the first while loop.
+
+License: MIT
+Signed-off-by: Simo Sorce <simo@redhat.com>
+---
+ lasso/xml/tools.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lasso/xml/tools.c b/lasso/xml/tools.c
+index afbb8b6..fd3defb 100644
+--- a/lasso/xml/tools.c
++++ b/lasso/xml/tools.c
+@@ -1931,7 +1931,7 @@ lasso_url_add_parameters(char *url,
+ 		gboolean free, ...)
+ {
+ 	char *old_url = url, *new_url = NULL;
+-	xmlChar *encoded_key, *encoded_value;
++	xmlChar *encoded_key = NULL, *encoded_value;
+ 	va_list ap;
+ 
+ 	va_start(ap, free);
+-- 
+1.9.3
+
+
+From 875f40832b7fe58c9ce2f0ae4a0d368f4c5d32ae Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Wed, 30 Jul 2014 17:17:08 +0200
+Subject: [PATCH 18/18] Restore not-unused code
+
+Clang was wrong on one instance, a value must be initialized to its NULL
+state before using any lasso_assign_ macro with it.
+
+Bug introduced in 4789e8d4d68eb.
+---
+ lasso/saml-2.0/profile.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lasso/saml-2.0/profile.c b/lasso/saml-2.0/profile.c
+index 106145a..465cbb2 100644
+--- a/lasso/saml-2.0/profile.c
++++ b/lasso/saml-2.0/profile.c
+@@ -1168,7 +1168,7 @@ lasso_saml20_profile_build_http_redirect(LassoProfile *profile,
+ {
+ 	char *query = NULL;
+ 	int rc = 0;
+-	LassoSignatureContext context;
++	LassoSignatureContext context = LASSO_SIGNATURE_CONTEXT_NONE;
+ 
+ 	goto_cleanup_if_fail_with_rc (url != NULL, LASSO_PROFILE_ERROR_UNKNOWN_PROFILE_URL);
+ 	/* if message is signed, remove XML signature, add query signature */
+-- 
+1.9.3
+

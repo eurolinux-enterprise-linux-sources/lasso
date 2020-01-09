@@ -1,0 +1,423 @@
+From c3d451559a6e02b99a88aaebaaee767620d7f1cc Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Wed, 28 May 2014 09:13:34 +0200
+Subject: [PATCH 02/14] bindings/python: fix conversion of unicode value to
+ UTF-8 for setters
+
+---
+ bindings/python/lang.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/bindings/python/lang.py b/bindings/python/lang.py
+index c695518..f56c731 100644
+--- a/bindings/python/lang.py
++++ b/bindings/python/lang.py
+@@ -418,7 +418,7 @@ if WSF_SUPPORT:
+             print >> fd, '        return t;'
+             # setter
+             print >> fd, '    def set_%s(self, value):' % mname
+-            if is_int(m, self.binding_data) or is_xml_node(m) or is_cstring(m) or is_boolean(m):
++            if is_int(m, self.binding_data) or is_xml_node(m) or is_boolean(m):
+                 pass
+             elif is_cstring(m):
+                 print >> fd, '        value = str2lasso(value)'
+-- 
+1.9.3
+
+
+From 880b833c6e77640bc5eb9103f3f79beeccf84f02 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sat, 7 Jun 2014 12:53:39 +0200
+Subject: [PATCH 03/14] tests: do not reuse tc_response_new_from_xmlNode test
+ case
+
+---
+ tests/basic_tests.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/tests/basic_tests.c b/tests/basic_tests.c
+index f9fdf3a..b0c5828 100644
+--- a/tests/basic_tests.c
++++ b/tests/basic_tests.c
+@@ -2093,6 +2093,8 @@ basic_suite()
+ 	TCase *tc_registry_functional_mapping = tcase_create("Test QName registry with functional mapping");
+ 	TCase *tc_registry_new_from_xmlNode = tcase_create("Test parsing a node that has a mapping to Lasso Object in the registry");
+ 	TCase *tc_response_new_from_xmlNode = tcase_create("Test parsing a message from Ping Federate");
++	TCase *tc_all_dumps = tcase_create("Test dumping all kind of nodes");
++	TCase *tc_get_default_name_id_format = tcase_create("Test getting default name id format");
+ 	TCase *tc_custom_namespace = tcase_create("Test custom namespace handling");
+ 	TCase *tc_load_metadata = tcase_create("Test loading a federation metadata file");
+ 	TCase *tc_key = tcase_create("Test loading and manipulating LassoKey objects");
+@@ -2107,6 +2109,8 @@ basic_suite()
+ 	suite_add_tcase(s, tc_registry_functional_mapping);
+ 	suite_add_tcase(s, tc_registry_new_from_xmlNode);
+ 	suite_add_tcase(s, tc_response_new_from_xmlNode);
++	suite_add_tcase(s, tc_all_dumps);
++	suite_add_tcase(s, tc_get_default_name_id_format);
+ 	suite_add_tcase(s, tc_custom_namespace);
+ 	suite_add_tcase(s, tc_load_metadata);
+ 	suite_add_tcase(s, tc_key);
+@@ -2121,8 +2125,8 @@ basic_suite()
+ 	tcase_add_test(tc_registry_functional_mapping, test07_registry_functional_mapping);
+ 	tcase_add_test(tc_registry_new_from_xmlNode, test08_test_new_from_xmlNode);
+ 	tcase_add_test(tc_response_new_from_xmlNode, test09_test_deserialization);
+-	tcase_add_test(tc_response_new_from_xmlNode, test10_test_alldumps);
+-	tcase_add_test(tc_response_new_from_xmlNode, test11_get_default_name_id_format);
++	tcase_add_test(tc_all_dumps, test10_test_alldumps);
++	tcase_add_test(tc_get_default_name_id_format, test11_get_default_name_id_format);
+ 	tcase_add_test(tc_custom_namespace, test12_custom_namespace);
+ 	tcase_add_test(tc_load_metadata, test13_test_lasso_server_load_metadata);
+ 	tcase_add_test(tc_key, test14_lasso_key);
+-- 
+1.9.3
+
+
+From b6282eda59717e61f3af54200fe7c58ead5d7adc Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sat, 7 Jun 2014 12:54:09 +0200
+Subject: [PATCH 04/14] tests: fix leak in log message checker
+
+---
+ tests/tests.h | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/tests/tests.h b/tests/tests.h
+index 3110e95..5292055 100644
+--- a/tests/tests.h
++++ b/tests/tests.h
+@@ -89,7 +89,7 @@ struct CheckingLogHandlerUserData {
+ 		const char *message;
+ 		gboolean endswith;
+ 		GLogLevelFlags log_level_found;
+-		const char *message_found;
++		char *message_found;
+ };
+ G_GNUC_UNUSED static guint checking_log_handler = 0;
+ G_GNUC_UNUSED static guint checking_log_handler_flag = 0;
+@@ -138,6 +138,9 @@ static inline void end_check_do_log() {
+ 			checking_logger_user_data.message,
+ 			checking_logger_user_data.log_level_found,
+ 			checking_logger_user_data.message_found);
++	if (checking_logger_user_data.message_found) {
++		g_free(checking_logger_user_data.message_found);
++	}
+ 	checking_log_handler_flag = 0;
+ }
+ 
+-- 
+1.9.3
+
+
+From 3a2c8e62dd0bee619f9b658d8beadcacd1dda42a Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sat, 7 Jun 2014 14:08:51 +0200
+Subject: [PATCH 05/14] saml-2.0/server: fix invalid memory access
+
+GList must never be allocated through malloc as it internally managed
+using gslice. Always use Glib constructors and methods.
+---
+ lasso/saml-2.0/server.c | 17 +++++++----------
+ 1 file changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/lasso/saml-2.0/server.c b/lasso/saml-2.0/server.c
+index 0d157cc..9abe320 100644
+--- a/lasso/saml-2.0/server.c
++++ b/lasso/saml-2.0/server.c
+@@ -145,12 +145,8 @@ lasso_saml20_server_load_metadata_entity(LassoServer *server, LassoProviderRole
+ 			lasso_release_gobject(provider);
+ 			return LASSO_SERVER_ERROR_NO_PROVIDER_LOADED;
+ 		}
+-		if (*loaded_end) {
+-			GList *l = *loaded_end;
+-			l->next = g_new0(GList, 1);
+-			l->next->prev = l;
+-			l->next->data = g_strdup(name);
+-			*loaded_end = l->next;
++		if (loaded_end) {
++			*loaded_end = g_list_prepend(*loaded_end, g_strdup(name));
+ 		}
+ 		g_hash_table_insert(server->providers, g_strdup(name), provider);
+ 		return 0;
+@@ -243,17 +239,18 @@ lasso_saml20_server_load_metadata(LassoServer *server, LassoProviderRole role,
+ 		xmlSecKeysMngr *keys_mngr, LassoServerLoadMetadataFlag flags)
+ {
+ 	lasso_error_t rc = 0;
+-	GList loaded = { .data = NULL, .next = NULL };
+-	GList *loaded_end = NULL;
++	GList *loaded = NULL;
++	GList **loaded_end = NULL;
+ 
+ 	if (loaded_entity_ids) {
+ 		loaded_end = &loaded;
+ 	}
+ 	rc = lasso_saml20_server_load_metadata_child(server, role,
+-			doc, root_node, blacklisted_entity_ids, &loaded_end, keys_mngr, flags);
++			doc, root_node, blacklisted_entity_ids, loaded_end, keys_mngr, flags);
+ 	if (loaded_entity_ids) {
++		loaded = g_list_reverse(loaded);
+ 		lasso_release_list_of_strings(*loaded_entity_ids);
+-		*loaded_entity_ids = loaded.next;
++		*loaded_entity_ids = loaded;
+ 	}
+ 	return rc;
+ }
+-- 
+1.9.3
+
+
+From 99f00e88bff32775ccbb5433bd269910216cf84a Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 04:30:00 +0200
+Subject: [PATCH 06/14] session: fix leak of _NidAndSessionIndex structures
+
+---
+ lasso/id-ff/session.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/lasso/id-ff/session.c b/lasso/id-ff/session.c
+index ed102d4..1b1688f 100644
+--- a/lasso/id-ff/session.c
++++ b/lasso/id-ff/session.c
+@@ -73,6 +73,7 @@ lasso_release_nid_and_session_index(struct _NidAndSessionIndex *nid_and_session_
+ 	lasso_release_gobject(nid_and_session_index->name_id);
+ 	lasso_release_string(nid_and_session_index->session_index);
+ 	lasso_release_string(nid_and_session_index->assertion_id);
++	lasso_release(nid_and_session_index);
+ }
+ 
+ void
+-- 
+1.9.3
+
+
+From e25968a9fdc9a225ac9bd3b9cc1efa0f2dfcc5bb Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 11:18:01 +0200
+Subject: [PATCH 07/14] server: fix leak of xmlSecKey objects
+
+---
+ lasso/id-ff/server.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/lasso/id-ff/server.c b/lasso/id-ff/server.c
+index 2641363..490d266 100644
+--- a/lasso/id-ff/server.c
++++ b/lasso/id-ff/server.c
+@@ -911,7 +911,6 @@ lasso_server_export_to_query_for_provider_by_name(LassoServer *server, const cha
+ 	goto_cleanup_if_fail_with_rc(query,
+ 			LASSO_PROFILE_ERROR_BUILDING_QUERY_FAILED);
+ 	lasso_assign_new_string(*out, query);
+-	context = LASSO_SIGNATURE_CONTEXT_NONE;
+ cleanup:
+ 	lasso_assign_new_signature_context(context, LASSO_SIGNATURE_CONTEXT_NONE);
+ 	return rc;
+-- 
+1.9.3
+
+
+From 49a6e9a9833b1a6ee60e8abd850e1c378db65635 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 11:56:54 +0200
+Subject: [PATCH 08/14] xml/samlp2_logout_request: fix leaks around session
+ indexes
+
+---
+ lasso/id-ff/session.c                      |  1 +
+ lasso/xml/saml-2.0/samlp2_logout_request.c | 16 ++++++++++++++--
+ 2 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/lasso/id-ff/session.c b/lasso/id-ff/session.c
+index 1b1688f..4cb3e2b 100644
+--- a/lasso/id-ff/session.c
++++ b/lasso/id-ff/session.c
+@@ -882,6 +882,7 @@ cleanup:
+ 	lasso_release_xml_string(session_index);
+ 	lasso_release_xml_string(provider_id);
+ 	lasso_release_xml_string(assertion_id);
++	lasso_release_gobject(name_id);
+ }
+ 
+ static int
+diff --git a/lasso/xml/saml-2.0/samlp2_logout_request.c b/lasso/xml/saml-2.0/samlp2_logout_request.c
+index 4f374a8..034d63d 100644
+--- a/lasso/xml/saml-2.0/samlp2_logout_request.c
++++ b/lasso/xml/saml-2.0/samlp2_logout_request.c
+@@ -90,6 +90,17 @@ static LassoNodeClass *parent_class = NULL;
+ #define GET_PRIVATE(x) G_TYPE_INSTANCE_GET_PRIVATE(x, \
+ 		LASSO_TYPE_SAMLP2_LOGOUT_REQUEST, LassoSamlp2LogoutRequestPrivate)
+ 
++static void
++dispose(GObject *object)
++{
++	LassoSamlp2LogoutRequest *logout_request = LASSO_SAMLP2_LOGOUT_REQUEST(object);
++	LassoSamlp2LogoutRequestPrivate *pv;
++
++	pv = GET_PRIVATE(logout_request);
++	lasso_release_list_of_strings(pv->SessionIndex);
++	G_OBJECT_CLASS(parent_class)->dispose(G_OBJECT(logout_request));
++}
++
+ /*****************************************************************************/
+ /* instance and class init functions                                         */
+ /*****************************************************************************/
+@@ -183,6 +194,7 @@ class_init(LassoSamlp2LogoutRequestClass *klass)
+ 	lasso_node_class_set_ns(nclass, LASSO_SAML2_PROTOCOL_HREF, LASSO_SAML2_PROTOCOL_PREFIX);
+ 	lasso_node_class_add_snippets(nclass, schema_snippets);
+ 	g_type_class_add_private(G_OBJECT_CLASS(klass), sizeof(LassoSamlp2LogoutRequestPrivate));
++	G_OBJECT_CLASS(klass)->dispose = dispose;
+ }
+ 
+ GType
+@@ -231,7 +243,7 @@ lasso_samlp2_logout_request_get_session_indexes(LassoSamlp2LogoutRequest *logout
+ 	pv = GET_PRIVATE(logout_request);
+ 	lasso_assign_list_of_strings(ret, pv->SessionIndex);
+ 	if (logout_request->SessionIndex) {
+-		ret = g_list_append(ret, g_strdup(logout_request->SessionIndex));
++		ret = g_list_prepend(ret, g_strdup(logout_request->SessionIndex));
+ 	}
+ 	return ret;
+ }
+@@ -261,7 +273,7 @@ lasso_samlp2_logout_request_set_session_indexes(LassoSamlp2LogoutRequest *logout
+ 	if (pv->SessionIndex && pv->SessionIndex->next) {
+ 		GList *last = g_list_last(pv->SessionIndex);
+ 		lasso_assign_new_string(logout_request->SessionIndex, (char*) last->data);
+-		pv->SessionIndex = g_list_remove_link(pv->SessionIndex, last);
++		pv->SessionIndex = g_list_delete_link(pv->SessionIndex, last);
+ 	}
+ }
+ 
+-- 
+1.9.3
+
+
+From 7d514b67fc548b0a1b2287776d6791de71ea0627 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 12:14:24 +0200
+Subject: [PATCH 09/14] id-ff/provider: fix leak of xmlSecKey
+
+---
+ lasso/id-ff/provider.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/lasso/id-ff/provider.c b/lasso/id-ff/provider.c
+index 8a02296..275207c 100644
+--- a/lasso/id-ff/provider.c
++++ b/lasso/id-ff/provider.c
+@@ -870,6 +870,9 @@ dispose(GObject *object)
+ 	provider->private_data->affiliation_owner_id = NULL;
+ 	lasso_release_list_of_full(provider->private_data->endpoints, lasso_endpoint_free);
+ 
++	lasso_assign_new_signature_context(provider->private_data->signature_context,
++			LASSO_SIGNATURE_CONTEXT_NONE);
++
+ 	G_OBJECT_CLASS(parent_class)->dispose(G_OBJECT(provider));
+ }
+ 
+-- 
+1.9.3
+
+
+From 5def9c160b5a293b11f6380436d8e99dc3fd5a19 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 12:15:01 +0200
+Subject: [PATCH 10/14] saml-2.0/profile: fix leak of xmlSecKey when building
+ signed query strings
+
+---
+ lasso/saml-2.0/profile.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/lasso/saml-2.0/profile.c b/lasso/saml-2.0/profile.c
+index 22a2fe3..cf3f45c 100644
+--- a/lasso/saml-2.0/profile.c
++++ b/lasso/saml-2.0/profile.c
+@@ -1169,9 +1169,7 @@ lasso_saml20_profile_build_http_redirect(LassoProfile *profile,
+ 
+ 	goto_cleanup_if_fail_with_rc (url != NULL, LASSO_PROFILE_ERROR_UNKNOWN_PROFILE_URL);
+ 	/* if message is signed, remove XML signature, add query signature */
+-	context = lasso_node_get_signature(msg);
+-	/* We must duplicate the key since lasso_node_remove_signature will free it. */
+-	context.signature_key = xmlSecKeyDuplicate(context.signature_key);
++	lasso_assign_signature_context(context, lasso_node_get_signature(msg));
+ 	if (lasso_validate_signature_method(context.signature_method)) {
+ 		lasso_node_remove_signature(msg);
+ 	}
+@@ -1180,6 +1178,7 @@ lasso_saml20_profile_build_http_redirect(LassoProfile *profile,
+ 	lasso_assign_new_string(profile->msg_url, lasso_concat_url_query(url, query));
+ 	lasso_release(profile->msg_body);
+ 	lasso_release(query);
++	lasso_assign_new_signature_context(context, LASSO_SIGNATURE_CONTEXT_NONE);
+ 
+ cleanup:
+ 	return rc;
+-- 
+1.9.3
+
+
+From a90d3ad1c82b63146a285a4e5d08f868fe16dd00 Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 11:57:51 +0200
+Subject: [PATCH 11/14] tests: fix leaks
+
+---
+ tests/basic_tests.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/tests/basic_tests.c b/tests/basic_tests.c
+index b0c5828..5ccdb41 100644
+--- a/tests/basic_tests.c
++++ b/tests/basic_tests.c
+@@ -2031,6 +2031,7 @@ START_TEST(test14_lasso_key)
+ 				LASSO_SIGNATURE_METHOD_RSA_SHA1, NULL));
+ 	lasso_release_string(base64_encoded);
+ 	lasso_release_string(buffer);
++	lasso_release_gobject(key);
+ }
+ END_TEST
+ 
+@@ -2077,6 +2078,7 @@ START_TEST(test15_ds_key_info)
+ 	lasso_release_string(dump);
+ 	dump = lasso_node_debug(node, 10);
+ 	lasso_release_string(dump);
++	lasso_release_gobject(node);
+ }
+ END_TEST
+ 
+-- 
+1.9.3
+
+
+From 82fd1bcd38957ed4a12eb867885ae3787b28144d Mon Sep 17 00:00:00 2001
+From: Benjamin Dauvergne <bdauvergne@entrouvert.com>
+Date: Sun, 8 Jun 2014 12:50:26 +0200
+Subject: [PATCH 14/14] bindings/python/tests: session indexes storage
+ preserves order now
+
+---
+ bindings/python/tests/profiles_tests.py | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/bindings/python/tests/profiles_tests.py b/bindings/python/tests/profiles_tests.py
+index 4d00f18..bbe1748 100755
+--- a/bindings/python/tests/profiles_tests.py
++++ b/bindings/python/tests/profiles_tests.py
+@@ -295,7 +295,6 @@ class LoginTestCase(unittest.TestCase):
+             lasso.PROVIDER_ROLE_SP,
+             os.path.join(dataDir, 'sp5-saml2/metadata.xml'))
+         idp_login = lasso.Login(idp)
+-        print sp_login.msgUrl
+         idp_login.processAuthnRequestMsg(sp_login.msgUrl.split('?')[1])
+         idp_login.protocolProfile = lasso.LOGIN_PROTOCOL_PROFILE_BRWS_POST;
+         idp_login.validateRequestMsg(True, True)
+@@ -493,7 +492,7 @@ class LogoutTestCase(unittest.TestCase):
+         node = lasso.Samlp2LogoutRequest.newFromXmlNode(content)
+         assert isinstance(node, lasso.Samlp2LogoutRequest)
+         assert node.sessionIndex == 'id1'
+-        assert node.sessionIndexes == ('id2', 'id3', 'id1')
++        assert node.sessionIndexes == ('id1', 'id2', 'id3')
+ 
+ serverSuite = unittest.makeSuite(ServerTestCase, 'test')
+ loginSuite = unittest.makeSuite(LoginTestCase, 'test')
+-- 
+1.9.3
+
