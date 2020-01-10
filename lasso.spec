@@ -14,8 +14,8 @@
 
 Summary: Liberty Alliance Single Sign On
 Name: lasso
-Version: 2.5.0
-Release: 1%{?dist}
+Version: 2.5.1
+Release: 2%{?dist}
 License: GPLv2+
 Group: System Environment/Libraries
 Source: http://dev.entrouvert.org/lasso/lasso-%{version}.tar.gz
@@ -26,9 +26,13 @@ BuildRequires: gtk-doc, libtool-ltdl-devel
 BuildRequires: glib2-devel >= 2.42, swig
 Requires: glib2 >= 2.42
 BuildRequires: libxml2-devel, xmlsec1-devel, openssl-devel, xmlsec1-openssl-devel
+BuildRequires: zlib-devel, check-devel
 BuildRequires: libtool autoconf automake
 BuildRequires: python-six
 Url: http://lasso.entrouvert.org/
+
+patch1: cflags.patch
+patch2: validate_idp_list_test.patch
 
 %description
 Lasso is a library that implements the Liberty Alliance Single Sign On
@@ -104,6 +108,8 @@ library.
 
 %prep
 %setup -q -n %{name}-%{version}
+%patch1 -p1
+%patch2 -p1
 
 %build
 autoreconf -vif
@@ -212,6 +218,15 @@ rm -fr %{buildroot}%{_defaultdocdir}/%{name}
 %endif
 
 %changelog
+* Fri Jun 17 2016 John Dennis <jdennis@redhat.com> - 2.5.1-2
+- Rebase to upstream 2.5.1
+  Resolves: #1310860
+- add validate_idp_list_test patch
+
+* Thu Jun  9 2016 John Dennis <jdennis@redhat.com> - 2.5.1-1
+- Rebase to upstream 2.5.1
+  Resolves: #1310860
+
 * Thu Sep  3 2015 John Dennis <jdennis@redhat.com> - 2.5.0-1
 - Rebase to upstream, now includes our ECP patches, no need to patch any more
   Resolves: #1205342

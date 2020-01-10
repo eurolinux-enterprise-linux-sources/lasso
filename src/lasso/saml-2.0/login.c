@@ -263,7 +263,7 @@ lasso_saml20_login_build_authn_request_msg(LassoLogin *login)
 		} else {
 			url = lasso_saml20_provider_get_assertion_consumer_service_url_by_binding(
 					LASSO_PROVIDER(profile->server), LASSO_SAML2_METADATA_BINDING_PAOS);
-			lasso_assign_string(authn_request->AssertionConsumerServiceURL, url);
+			lasso_assign_new_string(authn_request->AssertionConsumerServiceURL, url);
 		}
 	}
 
@@ -747,7 +747,7 @@ int
 lasso_saml20_login_build_assertion(LassoLogin *login,
 		const char *authenticationMethod,
 		const char *authenticationInstant,
-		G_GNUC_UNUSED const char *notBefore,
+		const char *notBefore,
 		const char *notOnOrAfter)
 {
 	LassoProfile *profile = &login->parent;
@@ -787,6 +787,7 @@ lasso_saml20_login_build_assertion(LassoLogin *login,
 	assertion->Issuer = LASSO_SAML2_NAME_ID(lasso_saml2_name_id_new_with_string(
 			LASSO_PROVIDER(profile->server)->ProviderID));
 	assertion->Conditions = LASSO_SAML2_CONDITIONS(lasso_saml2_conditions_new());
+	lasso_assign_string(assertion->Conditions->NotBefore, notBefore);
 	lasso_assign_string(assertion->Conditions->NotOnOrAfter, notOnOrAfter);
 
 	audience_restriction = LASSO_SAML2_AUDIENCE_RESTRICTION(
@@ -1035,7 +1036,7 @@ lasso_saml20_login_build_response_msg(LassoLogin *login)
 	int rc = 0;
 
 	if (login->protocolProfile == LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_LECP) {
-		const char *assertionConsumerURL;
+		char *assertionConsumerURL;
 
 		lasso_check_good_rc(lasso_profile_saml20_setup_message_signature(profile,
 					profile->response));
@@ -1059,6 +1060,7 @@ lasso_saml20_login_build_response_msg(LassoLogin *login)
 		/* build an ECP SOAP Response */
 		lasso_assign_new_string(profile->msg_body, lasso_node_export_to_ecp_soap_response(
 					LASSO_NODE(profile->response), assertionConsumerURL));
+		lasso_release_string(assertionConsumerURL);
 		return rc;
 	}
 
@@ -1137,6 +1139,7 @@ lasso_saml20_login_process_paos_response_msg(LassoLogin *login, gchar *msg)
 		if (paos_response) {
 			lasso_profile_set_message_id(profile, paos_response->refToMessageID);
 		}
+		lasso_release_gobject(header);
 	}
 
 	rc2 = lasso_saml20_login_process_response_status_and_assertion(login);

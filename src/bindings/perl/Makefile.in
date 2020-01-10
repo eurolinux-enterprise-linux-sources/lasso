@@ -840,9 +840,9 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
 @PERL_ENABLED_FALSE@distclean-local:
-@PERL_ENABLED_FALSE@clean-local:
-@PERL_ENABLED_FALSE@uninstall-local:
 @PERL_ENABLED_FALSE@install-exec-local:
+@PERL_ENABLED_FALSE@uninstall-local:
+@PERL_ENABLED_FALSE@clean-local:
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-local mostlyclean-am

@@ -2,7 +2,7 @@
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "Liberty Alliance Single Sign On and all dependencies"
-!define PRODUCT_VERSION "2.5.0"
+!define PRODUCT_VERSION "2.5.1"
 !define PRODUCT_PUBLISHER "Entr'ouvert"
 !define PRODUCT_WEB_SITE "http://www.entrouvert.org"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
@@ -48,7 +48,7 @@ SetCompressor bzip2
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Install-full-2_5_0.exe"
+OutFile "Install-full-2_5_1.exe"
 InstallDir "$SYSDIR"
 ShowInstDetails show
 ShowUnInstDetails show
@@ -99,7 +99,7 @@ Section "LIBINTL: Library for native language support." SEC08
   File "H:\lasso-deps\bin\intl.dll"
 SectionEnd
 
-Section "Lasso version 2.5.0" SEC09
+Section "Lasso version 2.5.1" SEC09
   File "..\msvc\Release\liblasso-3.dll"
 SectionEnd
 
