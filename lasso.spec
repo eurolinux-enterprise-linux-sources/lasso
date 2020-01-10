@@ -15,10 +15,11 @@
 Summary: Liberty Alliance Single Sign On
 Name: lasso
 Version: 2.5.1
-Release: 2%{?dist}
+Release: 3%{?dist}
 License: GPLv2+
 Group: System Environment/Libraries
 Source: http://dev.entrouvert.org/lasso/lasso-%{version}.tar.gz
+Source2:	lasso.ini
 %if %{with_wsf}
 BuildRequires: cyrus-sasl-devel
 %endif
@@ -33,6 +34,9 @@ Url: http://lasso.entrouvert.org/
 
 patch1: cflags.patch
 patch2: validate_idp_list_test.patch
+patch3: 0003-Choose-the-Reference-transform-based-on-the-chosen-S.patch
+patch4: 0004-Fix-ECP-signature-not-found-error-when-only-assertio.patch
+Patch5:	changeset_r7c075657a4d64f4d8dbcd03521a0694287d5059f.diff
 
 %description
 Lasso is a library that implements the Liberty Alliance Single Sign On
@@ -110,6 +114,9 @@ library.
 %setup -q -n %{name}-%{version}
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
+%patch5 -p1
 
 %build
 autoreconf -vif
@@ -218,6 +225,17 @@ rm -fr %{buildroot}%{_defaultdocdir}/%{name}
 %endif
 
 %changelog
+* Thu Aug 08 2019 Scientific Linux Auto Patch Process <SCIENTIFIC-LINUX-DEVEL@LISTSERV.FNAL.GOV>
+- Added Patch: changeset_r7c075657a4d64f4d8dbcd03521a0694287d5059f.diff
+-->  Fix expired cert
+- Added Source: lasso.ini
+-->  Config file for automated patch script
+
+* Sun Feb 10 2019 Jakub Hrozek <jhrozek@redhat.com> - 2.5.1-3
+- Resolves: #1634267 - ECP signature check fails with
+                       LASSO_DS_ERROR_SIGNATURE_NOT_FOUND when assertion signed
+                       instead of response
+
 * Fri Jun 17 2016 John Dennis <jdennis@redhat.com> - 2.5.1-2
 - Rebase to upstream 2.5.1
   Resolves: #1310860
