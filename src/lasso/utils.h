@@ -30,7 +30,6 @@
 #include <xmlsec/keys.h>
 #include "debug.h"
 #include "backward_comp.h"
-#include "xml/private.h"
 #include "xml/tools.h"
 #include "logging.h"
 
@@ -442,6 +441,11 @@
 	do { void *__tmp = gobject; GList **__tmp_list = &(list); \
 		*__tmp_list = g_list_remove(*__tmp_list, __tmp); \
 		lasso_unref(__tmp); } while(0)
+
+/* List element membership */
+#define lasso_is_in_list_of_strings(list, item) \
+	g_list_find_custom(list, item, (GCompareFunc)g_strcmp0) == NULL ? FALSE : TRUE
+
 
 /* Pointer ownership transfer */
 

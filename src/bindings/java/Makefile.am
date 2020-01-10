@@ -1,7 +1,7 @@
 .NOTPARALLEL:
 
 MAINTAINERCLEANFILES = Makefile.in
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_builddir) \
 	-I$(top_srcdir) \
 	$(SASL_CFLAGS)
@@ -104,7 +104,7 @@ AllJunitTests: JAVAFLAGS +="-Dsrcdir=$(srcdir)"
 
 AllJunitTests: $(test_source_files:.java=.class) 	
 	echo "#! /bin/sh" > $@
-	echo "OBJDIR=`libtool --config | grep ^objdir | sed s/.*=//`" >> $@
+	echo "OBJDIR=`$(top_builddir)/libtool --config | grep ^objdir | sed 's/.*=//'`" >> $@
 	echo 'LD_LIBRARY_PATH=$$OBJDIR DYLD_LIBRARY_PATH=$$OBJDIR @JUNIT@ -Djava.library.path=$$OBJDIR BindingTests' >> $@
 	echo 'LD_LIBRARY_PATH=$$OBJDIR DYLD_LIBRARY_PATH=$$OBJDIR @JUNIT@ -Djava.library.path=$$OBJDIR LoginTest' >> $@
 	chmod +x $@

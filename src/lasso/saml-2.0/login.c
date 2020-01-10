@@ -38,6 +38,9 @@
 #include "../id-ff/sessionprivate.h"
 #include "../id-ff/loginprivate.h"
 
+#include "../xml/ecp/ecp_relaystate.h"
+#include "../xml/paos_response.h"
+
 #include "../xml/xml_enc.h"
 
 #include "../xml/saml-2.0/samlp2_authn_request.h"
@@ -108,7 +111,7 @@ cleanup:
 
 static gboolean want_authn_request_signed(LassoProvider *provider) {
 	char *s;
-	gboolean rc = TRUE;
+	gboolean rc = FALSE;
 
 	s = lasso_provider_get_metadata_one_for_role(provider, LASSO_PROVIDER_ROLE_IDP,
 			LASSO_SAML2_METADATA_ATTRIBUTE_WANT_AUTHN_REQUEST_SIGNED);
@@ -159,9 +162,8 @@ _lasso_login_must_sign(LassoProfile *profile)
 	switch (lasso_profile_get_signature_hint(profile)) {
 		case LASSO_PROFILE_SIGNATURE_HINT_MAYBE:
 			/* If our metadatas say that we sign, then we sign,
-			 * If the IdP does not says that he doesn't want our signature, then we sign
-			 * (I decided to not follow the metadata specification and to always sign by
-			 * default).
+			 * If the IdP says that he wants our signature, then we sign
+			 * Otherwise we do not.
 			 */
 			ret = authn_request_signed(&profile->server->parent)
 				|| want_authn_request_signed(remote_provider);
@@ -183,6 +185,10 @@ _lasso_login_must_verify_authn_request_signature(LassoProfile *profile) {
 			profile->remote_providerID);
 
 	switch (lasso_profile_get_signature_verify_hint(profile)) {
+			/* If our metadatas say that we want signature, then we verify,
+			 * If the SP says that he signs, then we verify
+			 * Otherwise we do not.
+			 */
 		case LASSO_PROFILE_SIGNATURE_VERIFY_HINT_MAYBE:
 			return want_authn_request_signed(&profile->server->parent) ||
 				authn_request_signed(remote_provider);
@@ -238,11 +244,29 @@ lasso_saml20_login_build_authn_request_msg(LassoLogin *login)
 	if (login->http_method == LASSO_HTTP_METHOD_SOAP
 			&& lasso_strisequal(authn_request->ProtocolBinding,LASSO_SAML2_METADATA_BINDING_PAOS)) {
 		login->http_method = LASSO_HTTP_METHOD_PAOS;
-		/* PAOS is special, the url passed to build_request is the AssertionConsumerServiceURL of
-		 * this SP, not the destination. */
-		url = lasso_saml20_login_get_assertion_consumer_service_url(login,
-				LASSO_PROVIDER(profile->server));
 	}
+
+	if (login->http_method == LASSO_HTTP_METHOD_PAOS) {
+
+		/*
+		 * PAOS is special, the url passed to build_request is the
+		 * AssertionConsumerServiceURL of this SP, not the
+		 * destination.
+		 */
+		if (authn_request->AssertionConsumerServiceURL) {
+			url = authn_request->AssertionConsumerServiceURL;
+			if (!lasso_saml20_provider_check_assertion_consumer_service_url(
+					LASSO_PROVIDER(profile->server), url, LASSO_SAML2_METADATA_BINDING_PAOS)) {
+				rc = LASSO_PROFILE_ERROR_INVALID_REQUEST;
+				goto cleanup;
+			}
+		} else {
+			url = lasso_saml20_provider_get_assertion_consumer_service_url_by_binding(
+					LASSO_PROVIDER(profile->server), LASSO_SAML2_METADATA_BINDING_PAOS);
+			lasso_assign_string(authn_request->AssertionConsumerServiceURL, url);
+		}
+	}
+
 
 	lasso_check_good_rc(lasso_saml20_profile_build_request_msg(profile, "SingleSignOnService",
 				login->http_method, url));
@@ -303,7 +327,6 @@ lasso_saml20_login_process_authn_request_msg(LassoLogin *login, const char *auth
 	remote_provider->role = LASSO_PROVIDER_ROLE_SP;
 	server->parent.role = LASSO_PROVIDER_ROLE_IDP;
 
-	/* all those attributes are mutually exclusive */
 	if (((authn_request->ProtocolBinding != NULL) ||
 			(authn_request->AssertionConsumerServiceURL != NULL)) &&
 			(authn_request->AssertionConsumerServiceIndex != -1))
@@ -314,41 +337,31 @@ lasso_saml20_login_process_authn_request_msg(LassoLogin *login, const char *auth
 
 	/* try to find a protocol profile for sending the response */
 	protocol_binding = authn_request->ProtocolBinding;
-	if (protocol_binding == NULL && authn_request->AssertionConsumerServiceIndex) {
-		/* protocol binding not set; so it will look into
-		 * AssertionConsumerServiceIndex
-		 * Also, if AssertionConsumerServiceIndex is not set in request,
-		 * its value will be -1, which is just the right value to get
-		 * default assertion consumer...  (convenient)
-		 */
-		gchar *binding;
-		int service_index = authn_request->AssertionConsumerServiceIndex;
+	if (protocol_binding || authn_request->AssertionConsumerServiceURL)
+	{
+		if (authn_request->AssertionConsumerServiceURL) {
+			if (protocol_binding) {
+				if (! lasso_saml20_provider_check_assertion_consumer_service_url(
+							remote_provider, 
+							authn_request->AssertionConsumerServiceURL,
+							authn_request->ProtocolBinding)) {
+					// Sent ACS URL is unknown
+					rc = LASSO_PROFILE_ERROR_INVALID_PROTOCOLPROFILE;
+					goto cleanup;
+				}
+			} else {
+				// Only ACS URL sent, choose the first associated binding
+				protocol_binding = lasso_saml20_provider_get_assertion_consumer_service_binding_by_url(
+						remote_provider, authn_request->AssertionConsumerServiceURL);
+				if (! protocol_binding) {
+					rc = LASSO_PROFILE_ERROR_INVALID_PROTOCOLPROFILE;
+					goto cleanup;
+				}
+				lasso_assign_string(authn_request->ProtocolBinding,
+						protocol_binding);
+			}
+		}
 
-		binding = lasso_saml20_provider_get_assertion_consumer_service_binding(
-				remote_provider, service_index);
-		if (binding == NULL) {
-			if (service_index == -1)
-				return LASSO_LOGIN_ERROR_NO_DEFAULT_ENDPOINT;
-		} else if (lasso_strisequal(binding,"HTTP-Artifact")) {
-			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_ART;
-		} else if (lasso_strisequal(binding,"HTTP-POST")) {
-			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_POST;
-		} else if (lasso_strisequal(binding,"HTTP-Redirect")) {
-			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_REDIRECT;
-		} else if (lasso_strisequal(binding,"SOAP")) {
-			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_LECP;
-		} else if (lasso_strisequal(binding,"PAOS")) {
-			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_LECP;
-		}
-		lasso_release_string(binding);
-	} else {
-		// If we just received an URL, try to find the corresponding protocol binding
-		if (protocol_binding == NULL && authn_request->AssertionConsumerServiceURL) {
-			protocol_binding =
-				lasso_saml20_provider_get_assertion_consumer_service_binding_by_url(
-						remote_provider,
-						authn_request->AssertionConsumerServiceURL);
-		}
 		if (lasso_strisequal(protocol_binding,LASSO_SAML2_METADATA_BINDING_ARTIFACT)) {
 			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_ART;
 		} else if (lasso_strisequal(protocol_binding,LASSO_SAML2_METADATA_BINDING_POST)) {
@@ -364,6 +377,36 @@ lasso_saml20_login_process_authn_request_msg(LassoLogin *login, const char *auth
 			rc = LASSO_PROFILE_ERROR_INVALID_PROTOCOLPROFILE;
 			goto cleanup;
 		}
+	} else {
+		/* protocol binding not set; so it will look into
+		 * AssertionConsumerServiceIndex
+		 * Also, if AssertionConsumerServiceIndex is not set in request,
+		 * its value will be -1, which is just the right value to get
+		 * default assertion consumer...  (convenient)
+		 */
+		gchar *binding;
+		int service_index = authn_request->AssertionConsumerServiceIndex;
+
+		binding = lasso_saml20_provider_get_assertion_consumer_service_binding(
+				remote_provider, service_index);
+		if (binding == NULL) {
+			if (service_index == -1) {
+				goto_cleanup_with_rc(LASSO_LOGIN_ERROR_NO_DEFAULT_ENDPOINT);
+			} else {
+				goto_cleanup_with_rc(LASSO_PROFILE_ERROR_INVALID_PROTOCOLPROFILE);
+			}
+		} else if (lasso_strisequal(binding,"HTTP-Artifact")) {
+			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_ART;
+		} else if (lasso_strisequal(binding,"HTTP-POST")) {
+			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_POST;
+		} else if (lasso_strisequal(binding,"HTTP-Redirect")) {
+			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_REDIRECT;
+		} else if (lasso_strisequal(binding,"SOAP")) {
+			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_LECP;
+		} else if (lasso_strisequal(binding,"PAOS")) {
+			login->protocolProfile = LASSO_LOGIN_PROTOCOL_PROFILE_BRWS_LECP;
+		}
+		lasso_release_string(binding);
 	}
 
 
@@ -1000,14 +1043,18 @@ lasso_saml20_login_build_response_msg(LassoLogin *login)
 		if (LASSO_IS_PROVIDER(remote_provider) == FALSE)
 			return critical_error(LASSO_SERVER_ERROR_PROVIDER_NOT_FOUND);
 
-		assertionConsumerURL = lasso_saml20_login_get_assertion_consumer_service_url(
-						login, remote_provider);
+		assertionConsumerURL = lasso_saml20_provider_get_assertion_consumer_service_url_by_binding(
+                         remote_provider, LASSO_SAML2_METADATA_BINDING_PAOS);
 
 		assertion = login->private_data->saml2_assertion;
 		if (LASSO_IS_SAML2_ASSERTION(assertion) == TRUE) {
 			assertion->Subject->SubjectConfirmation->SubjectConfirmationData->Recipient
 						= g_strdup(assertionConsumerURL);
 		}
+
+		/* If response is signed it MUST have Destination attribute, optional otherwise */
+		lasso_assign_string(((LassoSamlp2StatusResponse*)profile->response)->Destination,
+					assertionConsumerURL);
 
 		/* build an ECP SOAP Response */
 		lasso_assign_new_string(profile->msg_body, lasso_node_export_to_ecp_soap_response(
@@ -1021,22 +1068,83 @@ cleanup:
 	return rc;
 }
 
+/**
+ * lasso_saml20_login_process_paos_response_msg:
+ * @login: a #LassoLogin profile object
+ * @msg: ECP to SP PAOS message
+ *
+ * Process an ECP to SP PAOS response message.
+ *
+ * SAML2 Profile for ECP (Section 4.2) defines these steps for an ECP
+ * transaction
+ *
+ * 1. ECP issues HTTP Request to SP
+ * 2. SP issues <AuthnRequest> to ECP using PAOS
+ * 3. ECP determines IdP
+ * 4. ECP conveys <AuthnRequest> to IdP using SOAP
+ * 5. IdP identifies principal
+ * 6. IdP issues <Response> to ECP, targeted at SP using SOAP
+ * 7. ECP conveys <Response> to SP using PAOS
+ * 8. SP grants or denies access to principal
+ *
+ * This function is used in the implemention of Step 8 in an SP. The
+ * ECP response from Step 7 has been received from the ECP client, the
+ * SP must now parse the response and act upon the result of the Authn
+ * request the SP issued in Step 2. If the SOAP body contains a
+ * samlp:Response with a saml:Assertion the assertion is processed in
+ * the context of the @login parameter.
+ *
+ * The response may contain in the SOAP header a paos:Response or
+ * ecp:RelayState elment, both are optional. If the ecp:RelayState is
+ * present it is assigned to the #LassoProfile.msg_relayState
+ * field. If the paos:Response is present it's refToMessageID
+ * attribute is assigned to the #LassoProfile.msg_messageID field.
+ */
 gint
 lasso_saml20_login_process_paos_response_msg(LassoLogin *login, gchar *msg)
 {
+	LassoSoapHeader *header = NULL;
 	LassoProfile *profile;
 	int rc1, rc2;
 
 	lasso_null_param(msg);
 
 	profile = LASSO_PROFILE(login);
-	rc1 = lasso_saml20_profile_process_soap_response(profile, msg);
-	rc2 = lasso_saml20_login_process_response_status_and_assertion(login);
 
+	rc1 = lasso_saml20_profile_process_soap_response_with_headers(profile, msg, &header);
+
+	/*
+	 * If the SOAP message contained a header check for the optional
+     * paos:Response and ecp:RelayState elements, if they exist extract their
+     * values into the profile.
+	 */
+	if (header) {
+		GList *i = NULL;
+		LassoEcpRelayState *ecp_relaystate = NULL;
+		LassoPaosResponse *paos_response = NULL;
+
+		lasso_foreach(i, header->Other) {
+			if (!ecp_relaystate && LASSO_IS_ECP_RELAYSTATE(i->data)) {
+				ecp_relaystate = (LassoEcpRelayState *)i->data;
+			} else if (!paos_response && LASSO_IS_PAOS_RESPONSE(i->data)) {
+				paos_response = (LassoPaosResponse *)i->data;
+			}
+			if (ecp_relaystate && paos_response) break;
+		}
+		if (ecp_relaystate) {
+			lasso_assign_string(profile->msg_relayState, ecp_relaystate->RelayState);
+		}
+		if (paos_response) {
+			lasso_profile_set_message_id(profile, paos_response->refToMessageID);
+		}
+	}
+
+	rc2 = lasso_saml20_login_process_response_status_and_assertion(login);
 	if (rc1) {
 		return rc1;
 	}
 	return rc2;
+
 }
 
 /**

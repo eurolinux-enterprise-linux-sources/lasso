@@ -26,6 +26,7 @@
 
 #include <check.h>
 #include <glib.h>
+#include <tests.h>
 #include "../lasso/lasso.h"
 #include "../lasso/lasso_config.h"
 
@@ -55,11 +56,51 @@ SuiteFunction suites[] = {
 #endif
 	NULL
 };
-void error_logger(const gchar *log_domain, GLogLevelFlags log_level,
+
+void
+mute_logger(G_GNUC_UNUSED const gchar *domain,
+		G_GNUC_UNUSED GLogLevelFlags log_level, G_GNUC_UNUSED const gchar *message,
+		G_GNUC_UNUSED gpointer user_data) {
+}
+
+void
+fail_logger(const gchar *log_domain, GLogLevelFlags log_level,
 		const gchar *message, G_GNUC_UNUSED gpointer user_data)
 {
 	fail("No logging output expected: message «%s» was emitted for domain «%s» at the level"
 			" «%d»", message, log_domain, log_level);
+}
+
+static xmlFreeFunc free_func;
+static xmlMallocFunc malloc_func;
+static xmlReallocFunc realloc_func;
+static xmlStrdupFunc strdup_func;
+
+void *
+my_malloc(size_t size)
+{
+	void *ptr = malloc_func(size);
+	if (! ptr) {
+		fail("xmlMalloc failed");
+	}
+	return ptr;
+}
+
+void *
+my_realloc(void *mem, size_t size)
+{
+	void *ptr = realloc_func(mem, size);
+	if (! ptr) {
+		fail("xmlRealloc failed");
+	}
+	return ptr;
+}
+
+void
+setup_xml_mem_allocation()
+{
+	xmlMemGet(&free_func, &malloc_func, &realloc_func, &strdup_func);
+	xmlMemSetup(free_func, my_malloc, my_realloc, strdup_func);
 }
 
 int
@@ -70,6 +111,7 @@ main(int argc, char *argv[])
 	int i;
 	int dont_fork = 0;
 
+	setup_xml_mem_allocation();
 	for (i=1; i<argc; i++) {
 		if (strcmp(argv[i], "--dontfork") == 0) {
 			dont_fork = 1;
@@ -77,7 +119,7 @@ main(int argc, char *argv[])
 	}
 
 	lasso_init();
-	g_log_set_default_handler(error_logger, NULL);
+	unblock_lasso_logs;
 
 	sr = srunner_create(suites[0]());
 

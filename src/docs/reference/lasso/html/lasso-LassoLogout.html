@@ -2,30 +2,26 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>LassoLogout</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.76.1">
+<title>Lasso Reference Manual: LassoLogout</title>
+<meta name="generator" content="DocBook XSL Stylesheets V1.78.1">
 <link rel="home" href="index.html" title="Lasso Reference Manual">
 <link rel="up" href="idff.html" title="Identity Federation Framework - ID-FF 1.2 profiles">
 <link rel="prev" href="lasso-LassoLogin.html" title="LassoLogin">
 <link rel="next" href="lasso-LassoDefederation.html" title="LassoDefederation">
-<meta name="generator" content="GTK-Doc V1.18 (XML mode)">
+<meta name="generator" content="GTK-Doc V1.21 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2">
-<tr valign="middle">
-<td><a accesskey="p" href="lasso-LassoLogin.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
-<td><a accesskey="u" href="idff.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
-<td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
-<th width="100%" align="center">Lasso Reference Manual</th>
-<td><a accesskey="n" href="lasso-LassoDefederation.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
-</tr>
-<tr><td colspan="5" class="shortcuts">
-<a href="#lasso-LassoLogout.synopsis" class="shortcut">Top</a>
-                   | 
-                  <a href="#lasso-LassoLogout.description" class="shortcut">Description</a>
-</td></tr>
-</table>
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="5"><tr valign="middle">
+<td width="100%" align="left" class="shortcuts">
+<a href="#" class="shortcut">Top</a><span id="nav_description">  <span class="dim">|</span> 
+                  <a href="#lasso-LassoLogout.description" class="shortcut">Description</a></span>
+</td>
+<td><a accesskey="h" href="index.html"><img src="home.png" width="16" height="16" border="0" alt="Home"></a></td>
+<td><a accesskey="u" href="idff.html"><img src="up.png" width="16" height="16" border="0" alt="Up"></a></td>
+<td><a accesskey="p" href="lasso-LassoLogin.html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
+<td><a accesskey="n" href="lasso-LassoDefederation.html"><img src="right.png" width="16" height="16" border="0" alt="Next"></a></td>
+</tr></table>
 <div class="refentry">
 <a name="lasso-LassoLogout"></a><div class="titlepage"></div>
 <div class="refnamediv"><table width="100%"><tr>
@@ -33,64 +29,150 @@
 <h2><span class="refentrytitle"><a name="lasso-LassoLogout.top_of_page"></a>LassoLogout</span></h2>
 <p>LassoLogout — Single Logout Profile</p>
 </td>
-<td valign="top" align="right"></td>
+<td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
-<div class="refsynopsisdiv">
-<a name="lasso-LassoLogout.synopsis"></a><h2>Synopsis</h2>
-<pre class="synopsis">struct              <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout">LassoLogout</a>;
-<a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *       <a class="link" href="lasso-LassoLogout.html#lasso-logout-new" title="lasso_logout_new ()">lasso_logout_new</a>                    (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>);
-<a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *       <a class="link" href="lasso-LassoLogout.html#lasso-logout-new-from-dump" title="lasso_logout_new_from_dump ()">lasso_logout_new_from_dump</a>          (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>,
-                                                         <em class="parameter"><code>const <span class="type">gchar</span> *dump</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-build-request-msg" title="lasso_logout_build_request_msg ()">lasso_logout_build_request_msg</a>      (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-build-response-msg" title="lasso_logout_build_response_msg ()">lasso_logout_build_response_msg</a>     (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">void</span>                <a class="link" href="lasso-LassoLogout.html#lasso-logout-destroy" title="lasso_logout_destroy ()">lasso_logout_destroy</a>                (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">gchar</span> *             <a class="link" href="lasso-LassoLogout.html#lasso-logout-dump" title="lasso_logout_dump ()">lasso_logout_dump</a>                   (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">gchar</span> *             <a class="link" href="lasso-LassoLogout.html#lasso-logout-get-next-providerID" title="lasso_logout_get_next_providerID ()">lasso_logout_get_next_providerID</a>    (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-init-request" title="lasso_logout_init_request ()">lasso_logout_init_request</a>           (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *remote_providerID</code></em>,
-                                                         <em class="parameter"><code><a class="link" href="lasso-LassoProvider.html#LassoHttpMethod" title="enum LassoHttpMethod"><span class="type">LassoHttpMethod</span></a> request_method</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-process-request-msg" title="lasso_logout_process_request_msg ()">lasso_logout_process_request_msg</a>    (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *request_msg</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-process-response-msg" title="lasso_logout_process_response_msg ()">lasso_logout_process_response_msg</a>   (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *response_msg</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-reset-providerID-index" title="lasso_logout_reset_providerID_index ()">lasso_logout_reset_providerID_index</a> (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-<span class="returnvalue">lasso_error_t</span>       <a class="link" href="lasso-LassoLogout.html#lasso-logout-validate-request" title="lasso_logout_validate_request ()">lasso_logout_validate_request</a>       (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);
-</pre>
+<div class="refsect1">
+<a name="lasso-LassoLogout.functions"></a><h2>Functions</h2>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="functions_return">
+<col class="functions_name">
+</colgroup>
+<tbody>
+<tr>
+<td class="function_type">
+<a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-new" title="lasso_logout_new ()">lasso_logout_new</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-new-from-dump" title="lasso_logout_new_from_dump ()">lasso_logout_new_from_dump</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-build-request-msg" title="lasso_logout_build_request_msg ()">lasso_logout_build_request_msg</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-build-response-msg" title="lasso_logout_build_response_msg ()">lasso_logout_build_response_msg</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">void</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-destroy" title="lasso_logout_destroy ()">lasso_logout_destroy</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">gchar</span> *
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-dump" title="lasso_logout_dump ()">lasso_logout_dump</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">gchar</span> *
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-get-next-providerID" title="lasso_logout_get_next_providerID ()">lasso_logout_get_next_providerID</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-init-request" title="lasso_logout_init_request ()">lasso_logout_init_request</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-process-request-msg" title="lasso_logout_process_request_msg ()">lasso_logout_process_request_msg</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-process-response-msg" title="lasso_logout_process_response_msg ()">lasso_logout_process_response_msg</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-reset-providerID-index" title="lasso_logout_reset_providerID_index ()">lasso_logout_reset_providerID_index</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+<tr>
+<td class="function_type">
+<span class="returnvalue">lasso_error_t</span>
+</td>
+<td class="function_name">
+<a class="link" href="lasso-LassoLogout.html#lasso-logout-validate-request" title="lasso_logout_validate_request ()">lasso_logout_validate_request</a> <span class="c_punctuation">()</span>
+</td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<div class="refsect1">
+<a name="lasso-LassoLogout.other"></a><h2>Types and Values</h2>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="name">
+<col class="description">
+</colgroup>
+<tbody><tr>
+<td class="datatype_keyword">struct</td>
+<td class="function_name"><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout">LassoLogout</a></td>
+</tr></tbody>
+</table></div>
 </div>
 <div class="refsect1">
 <a name="lasso-LassoLogout.description"></a><h2>Description</h2>
-<p>
-This profile Send logout notifications between providers. Any receiving provider must retransmit
+<p>This profile Send logout notifications between providers. Any receiving provider must retransmit
 the notification to any other providers with which it shares the current identity by any means
 supported by the two, that is any provider federated with the current provider. There can be
 partial failures if no binding can be found to notify a federating partner or if a partner fails
-to respond.
-</p>
-<p>
-</p>
+to respond.</p>
 <p>It is generally advised to apply the local logout transaction before sending a logout request to
 a partner. In short:
 </p>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
 <li class="listitem"><p>an identity provider receiving a logout request should kill the local
 session before sending logout request to other service provider and proxyied identity
 providers.</p></li>
 <li class="listitem"><p>a service provider intitiating a logout request must first kill its local session,
 then proceeds with the logout exchange with its identity provider</p></li>
 </ul></div>
-<p>
-</p>
-<p>
-</p>
 <p>The following examples must not be used 'as-is' they lack most of the error checking code
 that is needed for a secured and robust program, but they give an idea of how to use the
 API</p>
-<p>
-</p>
-<p>
-</p>
 <div class="example">
-<a name="idp9611248"></a><p class="title"><b>Example 4. Service Provider Initiated Logout</b></p>
+<a name="id-1.3.3.3.5.5"></a><p class="title"><b>Example 5. Service Provider Initiated Logout</b></p>
 <div class="example-contents">
   <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
     <tbody>
@@ -237,18 +319,10 @@ rc <span class="gtkdoc opt">=</span> <span class="function"><a href="lasso-Lasso
 </div>
 
 </div>
-<p><br class="example-break">
-</p>
-<p>
-</p>
-<p>The next example show the endpoint for handling response to request with asynchronous
+<br class="example-break"><p>The next example show the endpoint for handling response to request with asynchronous
 binding (POST and Redirect).</p>
-<p>
-</p>
-<p>
-</p>
 <div class="example">
-<a name="idp11042352"></a><p class="title"><b>Example 5. Service Provider Logout Request Endpoint</b></p>
+<a name="id-1.3.3.3.5.7"></a><p class="title"><b>Example 6. Service Provider Logout Request Endpoint</b></p>
 <div class="example-contents">
   <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
     <tbody>
@@ -299,18 +373,10 @@ logout <span class="gtkdoc opt">=</span> <span class="function"><a href="lasso-L
 </div>
 
 </div>
-<p><br class="example-break">
-</p>
-<p>
-</p>
-<p>The next snippet show how to implement a logout endpoint, to receive a logout request and
+<br class="example-break"><p>The next snippet show how to implement a logout endpoint, to receive a logout request and
 respond.</p>
-<p>
-</p>
-<p>
-</p>
 <div class="example">
-<a name="idp14970512"></a><p class="title"><b>Example 6. Service Provider Logout Request Endpoint</b></p>
+<a name="id-1.3.3.3.5.9"></a><p class="title"><b>Example 7. Service Provider Logout Request Endpoint</b></p>
 <div class="example-contents">
   <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
     <tbody>
@@ -471,79 +537,81 @@ rc <span class="gtkdoc opt">=</span> <span class="function"><a href="lasso-Lasso
 </div>
 
 </div>
-<p><br class="example-break">
-</p>
+<br class="example-break">
 </div>
 <div class="refsect1">
-<a name="lasso-LassoLogout.details"></a><h2>Details</h2>
+<a name="lasso-LassoLogout.functions_details"></a><h2>Functions</h2>
 <div class="refsect2">
-<a name="LassoLogout"></a><h3>struct LassoLogout</h3>
-<pre class="programlisting">struct LassoLogout {
-	LassoProfile parent;
-};
-</pre>
+<a name="lasso-logout-new"></a><h3>lasso_logout_new ()</h3>
+<pre class="programlisting"><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *
+lasso_logout_new (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>);</pre>
+<p>Creates a new <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.2.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>server</p></td>
+<td class="parameter_description"><p>the <a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.2.6"></a><h4>Returns</h4>
+<p> a newly created <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> object; or NULL if an error
+occured</p>
+<p></p>
+</div>
 </div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-new"></a><h3>lasso_logout_new ()</h3>
-<pre class="programlisting"><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *       lasso_logout_new                    (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>);</pre>
-<p>
-Creates a new <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
+<a name="lasso-logout-new-from-dump"></a><h3>lasso_logout_new_from_dump ()</h3>
+<pre class="programlisting"><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *
+lasso_logout_new_from_dump (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>,
+                            <em class="parameter"><code>const <span class="type">gchar</span> *dump</code></em>);</pre>
+<p>Restores the <em class="parameter"><code>dump</code></em>
+ to a new <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.3.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
 <tbody>
 <tr>
-<td><p><span class="term"><em class="parameter"><code>server</code></em> :</span></p></td>
-<td>the <a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a>
-</td>
+<td class="parameter_name"><p>server</p></td>
+<td class="parameter_description"><p>the <a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a></p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 <tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a newly created <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> object; or NULL if an error
-occured</td>
+<td class="parameter_name"><p>dump</p></td>
+<td class="parameter_description"><p>XML logout dump</p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 </tbody>
 </table></div>
 </div>
-<hr>
-<div class="refsect2">
-<a name="lasso-logout-new-from-dump"></a><h3>lasso_logout_new_from_dump ()</h3>
-<pre class="programlisting"><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="returnvalue">LassoLogout</span></a> *       lasso_logout_new_from_dump          (<em class="parameter"><code><a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a> *server</code></em>,
-                                                         <em class="parameter"><code>const <span class="type">gchar</span> *dump</code></em>);</pre>
-<p>
-Restores the <em class="parameter"><code>dump</code></em> to a new <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>server</code></em> :</span></p></td>
-<td>the <a class="link" href="lasso-LassoServer.html#LassoServer" title="struct LassoServer"><span class="type">LassoServer</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>dump</code></em> :</span></p></td>
-<td>XML logout dump</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a newly created <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>; or NULL if an error occured</td>
-</tr>
-</tbody>
-</table></div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.3.6"></a><h4>Returns</h4>
+<p> a newly created <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>; or NULL if an error occured</p>
+<p></p>
+</div>
 </div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-build-request-msg"></a><h3>lasso_logout_build_request_msg ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_build_request_msg      (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Builds the logout request message.
-</p>
-<p>
-It gets the HTTP method retrieved to send the request and:
-</p>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<a name="lasso-logout-build-request-msg"></a><h3>lasso_logout_build_request_msg ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_build_request_msg (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Builds the logout request message.</p>
+<p>It gets the HTTP method retrieved to send the request and:</p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
 <li class="listitem"><p>
   if it is a SOAP method, then it builds the logout request SOAP message,
   sets the msg_body attribute, gets the single logout service url and sets
@@ -555,39 +623,38 @@ It gets the HTTP method retrieved to send the request and:
   request url, sets <em class="parameter"><code>msg_body</code></em> to NULL.
 </p></li>
 </ul></div>
-<p>
-</p>
-<p>
-If private key and certificate are set in server object it will also signs
+<p>If private key and certificate are set in server object it will also signs
 the message (either with X509 if SOAP or with a simple signature for query
-strings).
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
-</tr>
-</tbody>
+strings).</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.4.8"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
 </table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.4.9"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
 </div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-build-response-msg"></a><h3>lasso_logout_build_response_msg ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_build_response_msg     (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Builds the logout response message.
-</p>
-<p>
-It gets the request message method and:
-</p>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<a name="lasso-logout-build-response-msg"></a><h3>lasso_logout_build_response_msg ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_build_response_msg (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Builds the logout response message.</p>
+<p>It gets the request message method and:</p>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
 <li class="listitem"><p>
    if it is a SOAP method, then it builds the logout response SOAP message,
    sets the msg_body attribute, gets the single logout service return url
@@ -599,224 +666,264 @@ It gets the request message method and:
    sets <em class="parameter"><code>msg_body</code></em> to NULL
 </p></li>
 </ul></div>
-<p>
-</p>
-<p>
-If private key and certificate are set in server object it will also signs
+<p>If private key and certificate are set in server object it will also signs
 the message (either with X509 if SOAP or with a simple signature for query
-strings).
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<hr>
-<div class="refsect2">
-<a name="lasso-logout-destroy"></a><h3>lasso_logout_destroy ()</h3>
-<pre class="programlisting"><span class="returnvalue">void</span>                lasso_logout_destroy                (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Destroys a logout object.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
+strings).</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.5.8"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
 <tbody><tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
 </tr></tbody>
 </table></div>
 </div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.5.9"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
+</div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-dump"></a><h3>lasso_logout_dump ()</h3>
-<pre class="programlisting"><span class="returnvalue">gchar</span> *             lasso_logout_dump                   (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Dumps <em class="parameter"><code>logout</code></em> content to an XML string.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
+<a name="lasso-logout-destroy"></a><h3>lasso_logout_destroy ()</h3>
+<pre class="programlisting"><span class="returnvalue">void</span>
+lasso_logout_destroy (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Destroys a logout object.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.6.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="lasso-logout-dump"></a><h3>lasso_logout_dump ()</h3>
+<pre class="programlisting"><span class="returnvalue">gchar</span> *
+lasso_logout_dump (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Dumps <em class="parameter"><code>logout</code></em>
+ content to an XML string.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.7.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.7.6"></a><h4>Returns</h4>
+<p> the dump string.  It must be freed by the caller. </p>
+<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+</div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="lasso-logout-get-next-providerID"></a><h3>lasso_logout_get_next_providerID ()</h3>
+<pre class="programlisting"><span class="returnvalue">gchar</span> *
+lasso_logout_get_next_providerID (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Returns the provider id from providerID_index in list of providerIDs in
+principal session with the exception of initial service provider ID.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.8.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.8.6"></a><h4>Returns</h4>
+<p> a newly allocated string or NULL. </p>
+<p><span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span></p>
+</div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="lasso-logout-init-request"></a><h3>lasso_logout_init_request ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_init_request (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
+                           <em class="parameter"><code><span class="type">gchar</span> *remote_providerID</code></em>,
+                           <em class="parameter"><code><a class="link" href="lasso-LassoProvider.html#LassoHttpMethod" title="enum LassoHttpMethod"><span class="type">LassoHttpMethod</span></a> request_method</code></em>);</pre>
+<p>Initializes a new SLO request.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.9.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
 <tbody>
 <tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 <tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>the dump string.  It must be freed by the caller. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
-</td>
+<td class="parameter_name"><p>remote_providerID</p></td>
+<td class="parameter_description"><p>the providerID of the identity provider.  If NULL the
+first identity provider is used.</p></td>
+<td class="parameter_annotations"> </td>
+</tr>
+<tr>
+<td class="parameter_name"><p>request_method</p></td>
+<td class="parameter_description"><p>if set, then it get the protocol profile in metadata
+corresponding of this HTTP request method.</p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 </tbody>
 </table></div>
 </div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.9.6"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
+</div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-get-next-providerID"></a><h3>lasso_logout_get_next_providerID ()</h3>
-<pre class="programlisting"><span class="returnvalue">gchar</span> *             lasso_logout_get_next_providerID    (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Returns the provider id from providerID_index in list of providerIDs in
-principal session with the exception of initial service provider ID.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
+<a name="lasso-logout-process-request-msg"></a><h3>lasso_logout_process_request_msg ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_process_request_msg (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
+                                  <em class="parameter"><code><span class="type">gchar</span> *request_msg</code></em>);</pre>
+<p>Processes a SLO LogoutRequest message.  Rebuilds a request object from the
+message and optionally verifies its signature.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.10.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
 <tbody>
 <tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 <tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>a newly allocated string or NULL. <span class="annotation">[<acronym title="Free data after the code is done."><span class="acronym">transfer full</span></acronym>]</span>
-</td>
+<td class="parameter_name"><p>request_msg</p></td>
+<td class="parameter_description"><p>the logout request message</p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 </tbody>
 </table></div>
 </div>
-<hr>
-<div class="refsect2">
-<a name="lasso-logout-init-request"></a><h3>lasso_logout_init_request ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_init_request           (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *remote_providerID</code></em>,
-                                                         <em class="parameter"><code><a class="link" href="lasso-LassoProvider.html#LassoHttpMethod" title="enum LassoHttpMethod"><span class="type">LassoHttpMethod</span></a> request_method</code></em>);</pre>
-<p>
-Initializes a new SLO request.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>remote_providerID</code></em> :</span></p></td>
-<td>the providerID of the identity provider.  If NULL the
-first identity provider is used.</td>
-</tr>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>request_method</code></em> :</span></p></td>
-<td>if set, then it get the protocol profile in metadata
-corresponding of this HTTP request method.</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
-</tr>
-</tbody>
-</table></div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.10.6"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
 </div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-process-request-msg"></a><h3>lasso_logout_process_request_msg ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_process_request_msg    (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *request_msg</code></em>);</pre>
-<p>
-Processes a SLO LogoutRequest message.  Rebuilds a request object from the
-message and optionally verifies its signature.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>request_msg</code></em> :</span></p></td>
-<td>the logout request message</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
-</tr>
-</tbody>
-</table></div>
-</div>
-<hr>
-<div class="refsect2">
-<a name="lasso-logout-process-response-msg"></a><h3>lasso_logout_process_response_msg ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_process_response_msg   (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
-                                                         <em class="parameter"><code><span class="type">gchar</span> *response_msg</code></em>);</pre>
-<p>
-Parses the response message and builds the response object.
-</p>
-<p>
-Checks the status code value and if it is not success, then if the local
+<a name="lasso-logout-process-response-msg"></a><h3>lasso_logout_process_response_msg ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_process_response_msg (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>,
+                                   <em class="parameter"><code><span class="type">gchar</span> *response_msg</code></em>);</pre>
+<p>Parses the response message and builds the response object.</p>
+<p>Checks the status code value and if it is not success, then if the local
 provider is a Service Provider and response method is SOAP, then builds a
 new logout request message for HTTP Redirect / GET method and returns the
-error code LASSO_LOGOUT_ERROR_UNSUPPORTED_PROFILE.
-</p>
-<p>
-If it is a SOAP method or, IDP type and http method is Redirect/GET,
-then removes assertion.
-</p>
-<p>
-If local server is an Identity Provider and if there is no more assertion
+error code LASSO_LOGOUT_ERROR_UNSUPPORTED_PROFILE.</p>
+<p>If it is a SOAP method or, IDP type and http method is Redirect/GET,
+then removes assertion.</p>
+<p>If local server is an Identity Provider and if there is no more assertion
 (Identity Provider has logged out every Service Providers), then restores
-the initial response.
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
+the initial response.</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.11.8"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
 <tbody>
 <tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 <tr>
-<td><p><span class="term"><em class="parameter"><code>response_msg</code></em> :</span></p></td>
-<td>the response message</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
+<td class="parameter_name"><p>response_msg</p></td>
+<td class="parameter_description"><p>the response message</p></td>
+<td class="parameter_annotations"> </td>
 </tr>
 </tbody>
 </table></div>
 </div>
-<hr>
-<div class="refsect2">
-<a name="lasso-logout-reset-providerID-index"></a><h3>lasso_logout_reset_providerID_index ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_reset_providerID_index (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-Reset the providerID_index attribute (set to 0).
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or a negative value otherwise.</td>
-</tr>
-</tbody>
-</table></div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.11.9"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
 </div>
 <hr>
 <div class="refsect2">
-<a name="lasso-logout-validate-request"></a><h3>lasso_logout_validate_request ()</h3>
-<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>       lasso_logout_validate_request       (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
-<p>
-</p>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<a name="lasso-logout-reset-providerID-index"></a><h3>lasso_logout_reset_providerID_index ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_reset_providerID_index (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<p>Reset the providerID_index attribute (set to 0).</p>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.12.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.12.6"></a><h4>Returns</h4>
+<p> 0 on success; or a negative value otherwise.</p>
+<p></p>
+</div>
+</div>
+<hr>
+<div class="refsect2">
+<a name="lasso-logout-validate-request"></a><h3>lasso_logout_validate_request ()</h3>
+<pre class="programlisting"><span class="returnvalue">lasso_error_t</span>
+lasso_logout_validate_request (<em class="parameter"><code><a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a> *logout</code></em>);</pre>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
 <li class="listitem"><p>
   Sets the remote provider id
 </p></li>
@@ -845,19 +952,24 @@ Reset the providerID_index attribute (set to 0).
   initial request, response and remote provider id.
 </p></li>
 </ul></div>
-<p>
-</p>
-<div class="variablelist"><table border="0">
-<col align="left" valign="top">
-<tbody>
-<tr>
-<td><p><span class="term"><em class="parameter"><code>logout</code></em> :</span></p></td>
-<td>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a>
-</td>
-</tr>
-<tr>
-<td><p><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></p></td>
-<td>0 on success; or
+<div class="refsect3">
+<a name="id-1.3.3.3.6.13.5"></a><h4>Parameters</h4>
+<div class="informaltable"><table width="100%" border="0">
+<colgroup>
+<col width="150px" class="parameters_name">
+<col class="parameters_description">
+<col width="200px" class="parameters_annotations">
+</colgroup>
+<tbody><tr>
+<td class="parameter_name"><p>logout</p></td>
+<td class="parameter_description"><p>a <a class="link" href="lasso-LassoLogout.html#LassoLogout" title="struct LassoLogout"><span class="type">LassoLogout</span></a></p></td>
+<td class="parameter_annotations"> </td>
+</tr></tbody>
+</table></div>
+</div>
+<div class="refsect3">
+<a name="id-1.3.3.3.6.13.6"></a><h4>Returns</h4>
+<p> 0 on success; or
 LASSO_PROFILE_ERROR_MISSING_REQUEST if no request has been found -- usually means that
 lasso_logout_process_request_msg was not called,
 LASSO_SERVER_ERROR_PROVIDER_NOT_FOUND if the requesting provider is not known to the server object,
@@ -870,15 +982,24 @@ LASSO_PROFILE_ERROR_IDENTITY_NOT_FOUND if the logout profile object do not conta
 object,
 LASSO_PROFILE_ERROR_FEDERATION_NOT_FOUND if no federation for the requesting provider was found,
 LASSO_LOGOUT_ERROR_UNSUPPORTED_PROFILE if the requested HTTP method is not supported by all the
-remote provider of the current session.</td>
-</tr>
-</tbody>
-</table></div>
+remote provider of the current session.</p>
+<p></p>
+</div>
+</div>
+</div>
+<div class="refsect1">
+<a name="lasso-LassoLogout.other_details"></a><h2>Types and Values</h2>
+<div class="refsect2">
+<a name="LassoLogout"></a><h3>struct LassoLogout</h3>
+<pre class="programlisting">struct LassoLogout {
+	LassoProfile parent;
+};
+</pre>
 </div>
 </div>
 </div>
 <div class="footer">
 <hr>
-          Generated by GTK-Doc V1.18</div>
+          Generated by GTK-Doc V1.21</div>
 </body>
 </html>

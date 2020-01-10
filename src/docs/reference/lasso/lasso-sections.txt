@@ -20,6 +20,8 @@ lasso_server_get_provider
 lasso_server_set_encryption_private_key
 lasso_server_set_encryption_private_key_with_password
 lasso_server_load_affiliation
+lasso_server_get_endpoint_url_by_id
+lasso_server_get_filtered_provider_list
 lasso_server_saml2_assertion_setup_signature
 <SUBSECTION Standard>
 LASSO_SERVER
@@ -167,6 +169,7 @@ lasso_provider_get_metadata_list_for_role
 lasso_provider_get_metadata_keys_for_role
 lasso_provider_get_roles
 lasso_provider_match_conformance
+lasso_provider_set_protocol_conformance
 <SUBSECTION Standard>
 LASSO_PROVIDER
 LASSO_IS_PROVIDER
@@ -1058,8 +1061,10 @@ lasso_node_export_to_base64
 lasso_node_export_to_query
 lasso_node_export_to_query_with_password
 lasso_node_export_to_soap
+lasso_node_export_to_soap_with_headers
 lasso_node_export_to_xml
 lasso_node_export_to_paos_request
+lasso_node_export_to_paos_request_full
 lasso_node_export_to_ecp_soap_response
 lasso_node_get_xmlNode
 lasso_node_get_name
@@ -2477,6 +2482,7 @@ LASSO_SOAP_DETAIL_GET_CLASS
 <TITLE>LassoSoapEnvelope</TITLE>
 LassoSoapEnvelope
 lasso_soap_envelope_new
+lasso_soap_envelope_new_full
 lasso_soap_envelope_new_from_message
 <SUBSECTION SoapBinding>
 lasso_soap_envelope_add_action
@@ -5752,6 +5758,12 @@ LASSO_IDWSF2_DSTREF_DATA_RESPONSE_GET_CLASS
 <FILE>ecp</FILE>
 <TITLE>LassoEcp</TITLE>
 LassoEcp
+lasso_ecp_is_provider_in_sp_idplist
+lasso_ecp_is_idp_entry_known_idp_supporting_ecp
+lasso_ecp_set_known_sp_provided_idp_entries_supporting_ecp
+lasso_ecp_has_sp_idplist
+lasso_ecp_get_endpoint_url_by_entity_id
+lasso_ecp_process_sp_idp_list
 lasso_ecp_new
 lasso_ecp_process_authn_request_msg
 lasso_ecp_process_response_msg
@@ -6155,4 +6167,39 @@ lasso_soap_envelope_get_sb2_user_interaction_header
 <TITLE>Logging</TITLE>
 lasso_log_set_handler
 lasso_log_remove_handler
+</SECTION>
+
+<SECTION>
+<FILE>paos_request</FILE>
+<TITLE>LassoPaosRequest</TITLE>
+lasso_paos_request_validate
+lasso_paos_request_new
+</SECTION>
+
+<SECTION>
+<FILE>paos_response</FILE>
+<TITLE>LassoPaosResponse</TITLE>
+lasso_paos_response_validate
+lasso_paos_response_new
+</SECTION>
+
+<SECTION>
+<FILE>ecp_request</FILE>
+<TITLE>LassoEcpRequest</TITLE>
+lasso_ecp_request_validate
+lasso_ecp_request_new
+</SECTION>
+
+<SECTION>
+<FILE>ecp_response</FILE>
+<TITLE>LassoEcpResponse</TITLE>
+lasso_ecp_response_validate
+lasso_ecp_response_new
+</SECTION>
+
+<SECTION>
+<FILE>ecp_relaystate</FILE>
+<TITLE>LassoEcpRelayState</TITLE>
+lasso_ecp_relay_state_validate
+lasso_ecp_relay_state_new
 </SECTION>

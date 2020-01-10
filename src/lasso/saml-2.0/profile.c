@@ -38,17 +38,22 @@
 #include "../id-ff/login.h"
 
 #include "../xml/private.h"
+#include "../xml/soap-1.1/soap_envelope.h"
 #include "../xml/saml-2.0/samlp2_request_abstract.h"
 #include "../xml/saml-2.0/samlp2_artifact_resolve.h"
 #include "../xml/saml-2.0/samlp2_artifact_response.h"
+#include "../xml/saml-2.0/samlp2_authn_request.h"
 #include "../xml/saml-2.0/samlp2_name_id_mapping_response.h"
 #include "../xml/saml-2.0/samlp2_status_response.h"
 #include "../xml/saml-2.0/samlp2_response.h"
 #include "../xml/saml-2.0/saml2_assertion.h"
 #include "../xml/saml-2.0/saml2_xsd.h"
+#include "../xml/soap-1.1/soap_envelope.h"
 #include "../xml/misc_text_node.h"
 #include "../utils.h"
 #include "../debug.h"
+
+
 
 static char* lasso_saml20_profile_build_artifact(LassoProvider *provider);
 static int lasso_saml20_profile_export_to_query(LassoProfile *profile, LassoNode *msg, char **query,
@@ -798,51 +803,59 @@ lasso_saml20_profile_init_request(LassoProfile *profile,
 		session = profile->session;
 	}
 
-	/* set remote provider Id */
-	if (! remote_provider_id) {
-		if (first_in_session) {
-			if (! session) {
-				return LASSO_PROFILE_ERROR_SESSION_NOT_FOUND;
+	/*
+	 * With PAOS the ECP client determines the remote provider.
+	 * Everthing in the following block of code depends on
+	 * establishing the remote provider and subsequetnly operating
+	 * on the remote provider.
+	 */
+	if (http_method != LASSO_HTTP_METHOD_PAOS) {
+		/* set remote provider Id */
+		if (! remote_provider_id) {
+			if (first_in_session) {
+				if (! session) {
+					return LASSO_PROFILE_ERROR_SESSION_NOT_FOUND;
+				}
+				remote_provider_id_auto = lasso_session_get_provider_index(session, 0);
+			} else {
+				remote_provider_id_auto = lasso_server_get_first_providerID(server);
 			}
-			remote_provider_id_auto = lasso_session_get_provider_index(session, 0);
-		} else {
-			remote_provider_id_auto = lasso_server_get_first_providerID(server);
 		}
-	}
-	if (! remote_provider_id && ! remote_provider_id_auto) {
-		rc = LASSO_PROFILE_ERROR_CANNOT_FIND_A_PROVIDER;
-		goto cleanup;
-	}
-	if (remote_provider_id) {
-		lasso_assign_string(profile->remote_providerID, remote_provider_id);
-	} else {
-		lasso_assign_new_string(profile->remote_providerID, remote_provider_id_auto);
-	}
-	rc = get_provider(profile, &remote_provider);
-	if (rc)
-		goto cleanup;
-	/* set the name identifier */
-	name_id = (LassoSaml2NameID*)lasso_profile_get_nameIdentifier(profile);
-	if (LASSO_IS_SAML2_NAME_ID(name_id)) {
-		lasso_assign_gobject(profile->nameIdentifier, (LassoNode*)name_id);
-	}
+		if (! remote_provider_id && ! remote_provider_id_auto) {
+			rc = LASSO_PROFILE_ERROR_CANNOT_FIND_A_PROVIDER;
+			goto cleanup;
+		}
+		if (remote_provider_id) {
+			lasso_assign_string(profile->remote_providerID, remote_provider_id);
+		} else {
+			lasso_assign_new_string(profile->remote_providerID, remote_provider_id_auto);
+		}
+		rc = get_provider(profile, &remote_provider);
+		if (rc)
+			goto cleanup;
+		/* set the name identifier */
+		name_id = (LassoSaml2NameID*)lasso_profile_get_nameIdentifier(profile);
+		if (LASSO_IS_SAML2_NAME_ID(name_id)) {
+			lasso_assign_gobject(profile->nameIdentifier, (LassoNode*)name_id);
+		}
 
-	/* verify that this provider supports the current http method */
-	if (http_method == LASSO_HTTP_METHOD_ANY) {
-		http_method = lasso_saml20_provider_get_first_http_method((LassoProvider*)server,
-				remote_provider, protocol_type);
-	}
-	if (http_method == LASSO_HTTP_METHOD_NONE) {
-		rc = LASSO_PROFILE_ERROR_UNSUPPORTED_PROFILE;
-		goto cleanup;
-	}
-	if (! lasso_saml20_provider_accept_http_method(
-				(LassoProvider*)server,
-				remote_provider,
-				protocol_type,
-				http_method,
-				TRUE)) {
-		rc = LASSO_PROFILE_ERROR_UNSUPPORTED_PROFILE;
+		/* verify that this provider supports the current http method */
+		if (http_method == LASSO_HTTP_METHOD_ANY) {
+			http_method = lasso_saml20_provider_get_first_http_method((LassoProvider*)server,
+					remote_provider, protocol_type);
+		}
+		if (http_method == LASSO_HTTP_METHOD_NONE) {
+			rc = LASSO_PROFILE_ERROR_UNSUPPORTED_PROFILE;
+			goto cleanup;
+		}
+		if (! lasso_saml20_provider_accept_http_method(
+					(LassoProvider*)server,
+					remote_provider,
+					protocol_type,
+					http_method,
+					TRUE)) {
+			rc = LASSO_PROFILE_ERROR_UNSUPPORTED_PROFILE;
+		}
 	}
 	profile->http_request_method = http_method;
 
@@ -898,26 +911,44 @@ lasso_saml20_profile_build_soap_request_msg(LassoProfile *profile, const char *u
 static int
 lasso_profile_saml20_build_paos_request_msg(LassoProfile *profile, const char *url)
 {
+	int rc = 0;
+    LassoSamlp2AuthnRequest *request;
+	LassoSamlp2IDPList *idp_list = NULL;
+
+	lasso_extract_node_or_fail(request, profile->request, SAMLP2_AUTHN_REQUEST,
+							   LASSO_PROFILE_ERROR_MISSING_REQUEST);
+
+	if (lasso_profile_get_idp_list(profile)) {
+		lasso_extract_node_or_fail(idp_list,
+								   lasso_profile_get_idp_list(profile),
+								   SAMLP2_IDP_LIST,
+								   LASSO_PROFILE_ERROR_INVALID_IDP_LIST);
+	}
+
 	lasso_assign_new_string(profile->msg_body,
-			lasso_node_export_to_paos_request(profile->request,
-					profile->server->parent.ProviderID, url,
-					profile->msg_relayState));
+			lasso_node_export_to_paos_request_full(profile->request,
+												   profile->server->parent.ProviderID, url,
+												   lasso_profile_get_message_id(profile),
+												   profile->msg_relayState,
+												   request->IsPassive, request->ProviderName,
+												   idp_list));
+
 	check_msg_body;
-	return 0;
+
+cleanup:
+	return rc;
 }
 
 int
 lasso_saml20_profile_build_request_msg(LassoProfile *profile, const char *service,
 		LassoHttpMethod method, const char *_url)
 {
-	LassoProvider *provider;
 	char *made_url = NULL, *url;
 	int rc = 0;
 
 	lasso_bad_param(PROFILE, profile);
 
 	lasso_profile_clean_msg_info(profile);
-	lasso_check_good_rc(get_provider(profile, &provider));
 	url = (char*)_url;
 
 	/* check presence of a request */
@@ -927,6 +958,9 @@ lasso_saml20_profile_build_request_msg(LassoProfile *profile, const char *servic
 
 	/* if not explicitely given, automatically determine an URI from the metadatas */
 	if (url == NULL) {
+		LassoProvider *provider;
+
+		lasso_check_good_rc(get_provider(profile, &provider));
 		made_url = url = get_url(provider, service, http_method_to_binding(method));
 	}
 
@@ -1439,7 +1473,32 @@ int
 lasso_saml20_profile_process_soap_response(LassoProfile *profile,
 		const char *response_msg)
 {
+	return lasso_saml20_profile_process_soap_response_with_headers(
+				profile, response_msg, NULL);
+}
+
+/**
+ * lasso_saml20_profile_process_soap_response_with_headers:
+ * @profile: the SAML 2.0 #LassoProfile object
+ * @response_msg: xml response message
+ * @header_return: If non-NULL the soap headers are returned at this
+ *                 pointer as a #LassoSoapHeader object.
+ *
+ * Generic method for processing SAML 2.0 protocol message as a SOAP response.
+ * The SOAP headers are returned via the header_return parameter
+ * if the parameter is non-NULL. The caller is responsible for freeing
+ * the SOAP header by calling lasso_release_gobject().
+ *
+ * Return value: 0 if successful; an error code otherwise.
+ */
+int
+lasso_saml20_profile_process_soap_response_with_headers(LassoProfile *profile,
+		const char *response_msg, LassoSoapHeader **header_return)
+{
 	int rc = 0;
+	LassoSoapEnvelope *envelope = NULL;
+	LassoSoapHeader *header = NULL;
+	LassoSoapBody *body = NULL;
 	LassoSaml2NameID *issuer = NULL;
 	LassoProvider *remote_provider = NULL;
 	LassoServer *server = NULL;
@@ -1447,9 +1506,38 @@ lasso_saml20_profile_process_soap_response(LassoProfile *profile,
 
 	lasso_bad_param(PROFILE, profile);
 	lasso_null_param(response_msg);
+	if (header_return) {
+		*header_return = NULL;
+	}
 
 	profile->signature_status = 0;
-	lasso_assign_new_gobject(profile->response, lasso_node_new_from_soap(response_msg));
+
+	/* Get the SOAP envelope */
+	lasso_extract_node_or_fail(envelope, lasso_soap_envelope_new_from_message(response_msg),
+							   SOAP_ENVELOPE, LASSO_PROFILE_ERROR_INVALID_SOAP_MSG);
+
+	/* Get and validate the SOAP body, assign it to the profile response */
+	lasso_extract_node_or_fail(body, envelope->Body, SOAP_BODY,
+							   LASSO_SOAP_ERROR_MISSING_BODY);
+	if (body->any && LASSO_IS_NODE(body->any->data)) {
+		lasso_assign_gobject(profile->response, body->any->data);
+	} else {
+		lasso_release_gobject(profile->response);
+		goto_cleanup_with_rc(LASSO_SOAP_ERROR_MISSING_BODY);
+	}
+
+	/* Get the optional SOAP header, validate it, optionally return it */
+	if (envelope->Header) {
+		lasso_extract_node_or_fail(header, envelope->Header, SOAP_HEADER,
+								   LASSO_PROFILE_ERROR_INVALID_SOAP_MSG);
+	}
+	if (header_return) {
+		if (header) {
+			lasso_assign_gobject(*header_return, header);
+		}
+	}
+
+	/* Extract and validate the response data */
 	lasso_extract_node_or_fail(response_abstract, profile->response, SAMLP2_STATUS_RESPONSE,
 			LASSO_PROFILE_ERROR_INVALID_MSG);
 	lasso_extract_node_or_fail(server, profile->server, SERVER,
@@ -1478,6 +1566,7 @@ lasso_saml20_profile_process_soap_response(LassoProfile *profile,
 	}
 
 cleanup:
+	lasso_release_gobject(envelope);
 	return rc;
 }
 

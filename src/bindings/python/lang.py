@@ -19,6 +19,7 @@
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
 import os
+from six import print_
 import sys
 import re
 import textwrap
@@ -33,9 +34,9 @@ def remove_bad_optional(args):
         if not '=' in x:
             non_opt = True
         elif non_opt:
-            print >>sys.stderr, 'W: changed', x,
+            print_('W: changed', x, file=sys.stderr)
             x = re.sub(' *=.*', '', x)
-            print >>sys.stderr, 'to', x
+            print_('to', x, file=sys.stderr)
         new_args.append(x)
     new_args.reverse()
     return new_args
@@ -72,23 +73,23 @@ class Binding:
         if not name:
             raise Exception('Cannot free, missing a name')
         if is_cstring(type):
-            print >>fd, '    lasso_release_string(%s);' % name
+            print_('    lasso_release_string(%s);' % name, file=fd)
         elif is_int(type, self.binding_data) or is_boolean(type):
             pass
         elif is_xml_node(type):
-            print >>fd, '    lasso_release_xml_node(%s);' % name
+            print_('    lasso_release_xml_node(%s);' % name, file=fd)
         elif is_glist(type):
             etype = element_type(type)
             if is_cstring(etype):
-                print >> fd, '    lasso_release_list_of_strings(%s);' % name
+                print_('    lasso_release_list_of_strings(%s);' % name, file=fd)
             elif is_object(etype):
-                print >> fd, '    lasso_release_list_of_gobjects(%s);' % name
+                print_('    lasso_release_list_of_gobjects(%s);' % name, file=fd)
             else:
                 raise Exception('Unsupported caller owned return type %s' % ((repr(type), name),))
         elif is_hashtable(type):
             raise Exception('Unsupported caller owned return type %s' % ((repr(type), name),))
         elif is_object(type):
-            print >> fd, '    if (return_value) g_object_unref(%s);' % name
+            print_('    if (return_value) g_object_unref(%s);' % name, file=fd)
         else:
             raise Exception('Unsupported caller owned return type %s' % ((repr(type), name),))
 
@@ -109,10 +110,12 @@ class Binding:
         fd.close()
 
     def generate_header(self, fd):
-        print >> fd, '''\
+        print_('''\
 # this file has been generated automatically; do not edit
 
 import _lasso
+import sys
+
 
 def cptrToPy(cptr):
     if cptr is None:
@@ -122,10 +125,14 @@ def cptrToPy(cptr):
     o._cptr = cptr
     return o
 
-def str2lasso(s):
-    if isinstance(s, unicode):
-        return s.encode('utf-8')
-    return s
+if sys.version_info >= (3,):
+    def str2lasso(s):
+        return s
+else: # Python 2.x
+    def str2lasso(s):
+        if isinstance(s, unicode):
+            return s.encode('utf-8')
+        return s
 
 class frozendict(dict):
     \'\'\'Immutable dict\'\'\'
@@ -155,11 +162,11 @@ class frozendict(dict):
 
     def __repr__(self):
         return 'frozendict(%s)' % dict.__repr__(self)
-'''
+''', file=fd)
 
     def generate_exceptions(self, fd):
         done_cats = []
-        print >> fd, '''\
+        print_('''\
 class Error(Exception):
     code = None
 
@@ -185,15 +192,15 @@ class Error(Exception):
             return _lasso.strError(self.code)
         else:
             raise IndexError()
-'''
+''', file=fd)
         for exc_cat in self.binding_data.overrides.findall('exception/category'):
             cat = exc_cat.attrib.get('name')
             done_cats.append(cat)
             parent_cat = exc_cat.attrib.get('parent', '')
-            print >> fd, '''\
+            print_('''\
 class %sError(%sError):
     pass
-''' % (cat, parent_cat)
+''' % (cat, parent_cat), file=fd)
 
         exceptions_dict = {}
 
@@ -213,10 +220,10 @@ class %sError(%sError):
                 else:
                     parent_cat = ''
 
-                print >> fd, '''\
+                print_('''\
 class %sError(%sError):
     pass
-''' % (cat, parent_cat)
+''' % (cat, parent_cat), file=fd)
 
             exceptions_dict[detail] = c[1][6:]
 
@@ -231,19 +238,19 @@ class %sError(%sError):
                 # ordering would change)
                 continue
 
-            print >> fd, '''\
+            print_('''\
 class %sError(%sError):
     pass
-''' % (detail, cat)
+''' % (detail, cat), file=fd)
 
-        print >> fd, 'exceptions_dict = {'
+        print_('exceptions_dict = {', file=fd)
         for k, v in exceptions_dict.items():
-            print >> fd, '    _lasso.%s: %sError,' % (v, k)
-        print >> fd, '}'
-        print >> fd, ''
+            print_('    _lasso.%s: %sError,' % (v, k), file=fd)
+        print_('}', file=fd)
+        print_('', file=fd)
 
     def generate_footer(self, fd):
-        print >> fd, '''
+        print_('''
 
 import lasso
 
@@ -291,22 +298,22 @@ if WSF_SUPPORT:
     InteractionProfileService.buildResponseMsg = InteractionProfileService.buildSoapResponseMsg
     DataService.buildRequestMsg = DataService.buildSoapRequestMsg
     DiscoModifyResponse.newEntryIds = DiscoModifyResponse.newEntryIDs
-'''
+''', file=fd)
 
     def generate_constants(self, fd):
-        print >> fd, '### Constants (both enums and defines)'
+        print_('### Constants (both enums and defines)', file=fd)
         for c in self.binding_data.constants:
-            print >> fd, '%s = _lasso.%s' % (c[1][6:], c[1][6:])
+            print_('%s = _lasso.%s' % (c[1][6:], c[1][6:]), file=fd)
         for c in self.binding_data.overrides.findall('constant'):
             name = c.attrib.get('name')
             if c.attrib.get('value'):
                 name = name[6:] # dropping LASSO_
                 value = c.attrib.get('value')
                 if value == 'True':
-                    print >> fd, '%s = True' % name
+                    print_('%s = True' % name, file=fd)
                 else:
-                    print >> sys.stderr, 'E: unknown value for constant: %r' % value
-        print >> fd, ''
+                    print_('E: unknown value for constant: %r' % value, file=sys.stderr)
+        print_('', file=fd)
 
     def generate_class(self, clss, fd):
         klassname = clss.name[5:] # remove Lasso from class name
@@ -315,7 +322,7 @@ if WSF_SUPPORT:
         else:
             parentname = clss.parent[5:]
 
-        print >> fd, '''class %(klassname)s(%(parentname)s):''' % locals()
+        print_('''class %(klassname)s(%(parentname)s):''' % locals(), file=fd)
 
         methods = clss.methods[:]
         # constructor(s)
@@ -338,14 +345,14 @@ if WSF_SUPPORT:
 
                 c_args = ', '.join(c_args)
                 py_args = ', ' + ', '.join(py_args)
-                print >> fd, '    def __init__(self%s):' % py_args
+                print_('    def __init__(self%s):' % py_args, file=fd)
                 # XXX: could check self._cptr.typename to see if it got the
                 # right class type
-                print >> fd, '        self._cptr = _lasso.%s(%s)' % (
-                        m.name[6:], c_args)
-                print >> fd, '        if self._cptr is None:'
-                print >> fd, '            raise Error(\'failed to create object\')'
-                print >> fd, ''
+                print_('        self._cptr = _lasso.%s(%s)' % (
+                        m.name[6:], c_args), file=fd)
+                print_('        if self._cptr is None:', file=fd)
+                print_('            raise Error(\'failed to create object\')', file=fd)
+                print_('', file=fd)
 
         for m in self.binding_data.functions:
             if m.name.startswith(method_prefix + 'new_'):
@@ -369,13 +376,13 @@ if WSF_SUPPORT:
                     if '=' in x:
                         opt = True
                     elif opt:
-                        print >>sys.stderr, 'W: non-optional follows optional,', m
+                        print_('W: non-optional follows optional,', m, file=sys.stderr)
                 c_args = ', '.join(c_args)
                 py_args = ', ' + ', '.join(py_args)
-                print >> fd, '    @classmethod'
-                print >> fd, '    def %s(cls%s):' % (constructor_name, py_args)
-                print >> fd, '         return cptrToPy(_lasso.%s(%s))' % (m.name[6:], c_args)
-                print >> fd, ''
+                print_('    @classmethod', file=fd)
+                print_('    def %s(cls%s):' % (constructor_name, py_args), file=fd)
+                print_('         return cptrToPy(_lasso.%s(%s))' % (m.name[6:], c_args), file=fd)
+                print_('', file=fd)
 
         # create properties for members
         for m in clss.members:
@@ -383,13 +390,13 @@ if WSF_SUPPORT:
             mname = format_as_camelcase(m[1])
             options = m[2]
             # getter
-            print >> fd, '    def get_%s(self):' % mname
-            print >> fd, '        t = _lasso.%s_%s_get(self._cptr)' % (
-                    klassname, mname)
+            print_('    def get_%s(self):' % mname, file=fd)
+            print_('        t = _lasso.%s_%s_get(self._cptr)' % (
+                    klassname, mname), file=fd)
             if is_int(m, self.binding_data) or is_xml_node(m) or is_cstring(m) or is_boolean(m):
                 pass
             elif is_object(m):
-                print >> fd, '        t = cptrToPy(t)'
+                print_('        t = cptrToPy(t)', file=fd)
             elif is_glist(m):
                 el_type = element_type(m)
                 if is_cstring(el_type):
@@ -397,54 +404,54 @@ if WSF_SUPPORT:
                 elif is_xml_node(el_type):
                     pass
                 elif is_object(el_type):
-                    print >> fd, '        if not t: return t'
-                    print >> fd, '        t = tuple([cptrToPy(x) for x in t])'
+                    print_('        if not t: return t', file=fd)
+                    print_('        t = tuple([cptrToPy(x) for x in t])', file=fd)
                 else:
                     raise Exception('Unsupported python getter %s.%s' % (clss, m))
             elif is_hashtable(m):
                 el_type = element_type(m)
-                print >> fd, '        if not t: return t'
+                print_('        if not t: return t', file=fd)
                 if is_object(el_type):
-                    print >> fd, '        d2 = {}'
-                    print >> fd, '        for k, v in t.items():'
-                    print >> fd, '            d2[k] = cptrToPy(v)'
-                    print >> fd, '        t = frozendict(d2)'
+                    print_('        d2 = {}', file=fd)
+                    print_('        for k, v in t.items():', file=fd)
+                    print_('            d2[k] = cptrToPy(v)', file=fd)
+                    print_('        t = frozendict(d2)', file=fd)
                 else:
-                    print >> fd, '        t = frozendict(t)'
+                    print_('        t = frozendict(t)', file=fd)
             elif is_boolean(m) or is_int(m, self.binding_data) or is_xml_node(m) or is_cstring(m):
                 pass
             else:
                 raise Exception('Unsupported python getter %s.%s' % (clss, m))
-            print >> fd, '        return t;'
+            print_('        return t;', file=fd)
             # setter
-            print >> fd, '    def set_%s(self, value):' % mname
+            print_('    def set_%s(self, value):' % mname, file=fd)
             if is_int(m, self.binding_data) or is_xml_node(m) or is_boolean(m):
                 pass
             elif is_cstring(m):
-                print >> fd, '        value = str2lasso(value)'
+                print_('        value = str2lasso(value)', file=fd)
             elif is_object(m):
-                print >> fd, '        if value is not None:'
-                print >> fd, '            value = value and value._cptr'
+                print_('        if value is not None:', file=fd)
+                print_('            value = value and value._cptr', file=fd)
             elif is_glist(m):
                 el_type = element_type(m)
                 if is_cstring(el_type) or is_xml_node(el_type):
                     pass
                 elif is_object(el_type):
-                    print >> fd, '        if value is not None:'
-                    print >> fd, '            value = tuple([x._cptr for x in value])'
+                    print_('        if value is not None:', file=fd)
+                    print_('            value = tuple([x._cptr for x in value])', file=fd)
                 else:
                     raise Exception('Unsupported python setter %s.%s' % (clss, m))
             elif is_hashtable(m):
-                print >> sys.stderr, 'W: unsupported setter for hashtable %s' % (m,)
+                print_('W: unsupported setter for hashtable %s' % (m,), file=sys.stderr)
             else:
-                print >> sys.stderr, 'W: unsupported setter for %s' % (m,)
-            print >> fd, '        _lasso.%s_%s_set(self._cptr, value)' % (
-                    klassname, mname)
-            print >> fd, '    %s = property(get_%s, set_%s)' % (mname, mname, mname)
+                print_('W: unsupported setter for %s' % (m,), file=sys.stderr)
+            print_('        _lasso.%s_%s_set(self._cptr, value)' % (
+                    klassname, mname), file=fd)
+            print_('    %s = property(get_%s, set_%s)' % (mname, mname, mname), file=fd)
             old_mname = old_format_as_camelcase(m[1])
             if mname != old_mname:
-                print >> fd, '    %s = %s' % (old_mname, mname)
-            print >> fd, ''
+                print_('    %s = %s' % (old_mname, mname), file=fd)
+            print_('', file=fd)
 
         # first pass on methods, getting accessors
         # second pass on methods, real methods
@@ -454,7 +461,7 @@ if WSF_SUPPORT:
                     m.name.endswith('_new_full'):
                 continue
             if not m.name.startswith(method_prefix):
-                print >> sys.stderr, 'W:', m.name, 'vs', method_prefix
+                print_('W:', m.name, 'vs', method_prefix, file=sys.stderr)
                 continue
 
             if m.rename:
@@ -491,7 +498,7 @@ if WSF_SUPPORT:
                 if '=' in x:
                     opt = True
                 elif opt:
-                    print >>sys.stderr, 'W: non-optional follow optional,', m
+                    print_('W: non-optional follow optional,', m, file=sys.stderr)
 
             if py_args:
                 py_args = ', ' + ', '.join(py_args)
@@ -502,51 +509,51 @@ if WSF_SUPPORT:
             else:
                 c_args = ''
 
-            print >> fd, '    def %s(self%s):' % (
-                    format_underscore_as_camelcase(mname), py_args)
+            print_('    def %s(self%s):' % (
+                    format_underscore_as_camelcase(mname), py_args), file=fd)
             if m.docstring:
-                print >> fd, "        '''"
-                print >> fd, self.format_docstring(m, mname, 8)
-                print >> fd, "        '''"
+                print_("        '''", file=fd)
+                print_(self.format_docstring(m, mname, 8), file=fd)
+                print_("        '''", file=fd)
 
             if outarg:
-                print >> fd, "        %s = list((None,))" % outvar
+                print_("        %s = list((None,))" % outvar, file=fd)
             return_type = m.return_type
             return_type_qualifier = m.return_type_qualifier
             assert is_int(make_arg(return_type),self.binding_data) or not outarg
             if return_type in (None, 'void'):
-                print >> fd, '        _lasso.%s(self._cptr%s)' % (
-                        function_name, c_args)
+                print_('        _lasso.%s(self._cptr%s)' % (
+                        function_name, c_args), file=fd)
             elif is_rc(m.return_arg):
-                print >> fd, '        rc = _lasso.%s(self._cptr%s)' % (
-                        function_name, c_args)
-                print >> fd, '        Error.raise_on_rc(rc)'
+                print_('        rc = _lasso.%s(self._cptr%s)' % (
+                        function_name, c_args), file=fd)
+                print_('        Error.raise_on_rc(rc)', file=fd)
             elif is_int(m.return_arg, self.binding_data) or is_xml_node(m.return_arg) or is_cstring(m.return_arg) or is_boolean(m.return_arg):
-                print >> fd, '        return _lasso.%s(self._cptr%s)' % (
-                        function_name, c_args)
+                print_('        return _lasso.%s(self._cptr%s)' % (
+                        function_name, c_args), file=fd)
             elif is_glist(m.return_arg):
                 el_type = element_type(m.return_arg)
                 if is_object(el_type):
-                    print >> fd, '        value = _lasso.%s(self._cptr%s)' % (
-                            function_name, c_args)
-                    print >> fd, '        if value is not None:'
-                    print >> fd, '            value = tuple([cptrToPy(x) for x in value])'
-                    print >> fd, '        return value'
+                    print_('        value = _lasso.%s(self._cptr%s)' % (
+                            function_name, c_args), file=fd)
+                    print_('        if value is not None:', file=fd)
+                    print_('            value = tuple([cptrToPy(x) for x in value])', file=fd)
+                    print_('        return value', file=fd)
                 elif is_cstring(el_type):
-                    print >> fd, '        return _lasso.%s(self._cptr%s)' % (
-                            function_name, c_args)
+                    print_('        return _lasso.%s(self._cptr%s)' % (
+                            function_name, c_args), file=fd)
                 else:
                     raise Exception('Return Type GList<%s> is not supported' % el_type)
             elif is_hashtable(m.return_arg):
                 raise Exception('Return type GHashTable unsupported')
             elif is_object(m.return_arg):
-                print >> fd, '        return cptrToPy(_lasso.%s(self._cptr%s))' % (
-                        function_name, c_args)
+                print_('        return cptrToPy(_lasso.%s(self._cptr%s))' % (
+                        function_name, c_args), file=fd)
             else:
                 raise Exception('Return type %s is unsupported' % (m.return_arg,))
             if outarg:
-                print >> fd, '        return %s[0]' % outvar
-            print >> fd, ''
+                print_('        return %s[0]' % outvar, file=fd)
+            print_('', file=fd)
         # transform methods to properties
         for m in methods:
             if len(m.args) > 1:
@@ -554,7 +561,7 @@ if WSF_SUPPORT:
             name = m.rename or m.name
             suffix = name[len(method_prefix)+len('get_'):]
             if clss.getMember(suffix):
-                print >>sys.stderr, 'W: method %s and member %s clashes' % (m.name, arg_name(clss.getMember(suffix)))
+                print_('W: method %s and member %s clashes' % (m.name, arg_name(clss.getMember(suffix))), file=sys.stderr)
                 continue
             if not name.startswith(method_prefix) or not name[len(method_prefix):].startswith('get_'):
                 continue
@@ -566,13 +573,13 @@ if WSF_SUPPORT:
             pname = format_as_camelcase(name[len(method_prefix)+len('get_'):])
             fname = format_as_camelcase(name[len(method_prefix):])
             if not setter:
-                print >> fd, '    %s = property(%s)' % (pname, fname)
+                print_('    %s = property(%s)' % (pname, fname), file=fd)
             else:
                 f2name = format_as_camelcase(setter.name[len(method_prefix):])
-                print >> fd, '    %s = property(%s, %s)' % (pname, fname, f2name)
+                print_('    %s = property(%s, %s)' % (pname, fname, f2name), file=fd)
         if empty:
-            print >> fd, '    pass'
-        print >> fd, ''
+            print_('    pass', file=fd)
+        print_('', file=fd)
 
     def format_docstring(self, func, method_name, indent):
         if func.args:
@@ -591,7 +598,7 @@ if WSF_SUPPORT:
                     return 'True'
                 if var == 'FALSE':
                     return 'False'
-                print >> sys.stderr, 'W: unknown docstring thingie: %s' % s.group(1)
+                print_('W: unknown docstring thingie: %s' % s.group(1), file=sys.stderr)
             elif type == '@':
                 if var == first_arg_name:
                     var = 'self'
@@ -676,14 +683,14 @@ if WSF_SUPPORT:
             else:
                 name = m.name[6:]
                 pname = format_as_camelcase(name)
-            print >> fd, '%s = _lasso.%s' % (pname, name)
+            print_('%s = _lasso.%s' % (pname, name), file=fd)
 
 
     def generate_wrapper(self, fd):
-        print >> fd, open(os.path.join(self.src_dir,'wrapper_top.c')).read()
+        print_(open(os.path.join(self.src_dir,'wrapper_top.c')).read(), file=fd)
         for h in self.binding_data.headers:
-            print >> fd, '#include <%s>' % h
-        print >> fd, ''
+            print_('#include <%s>' % h, file=fd)
+        print_('', file=fd)
 
         self.generate_constants_wrapper(fd)
 
@@ -695,32 +702,32 @@ if WSF_SUPPORT:
             for m in c.methods:
                 self.generate_function_wrapper(m, fd)
         self.generate_wrapper_list(fd)
-        print >> fd, open(os.path.join(self.src_dir,'wrapper_bottom.c')).read()
+        print_(open(os.path.join(self.src_dir,'wrapper_bottom.c')).read(), file=fd)
 
     def generate_constants_wrapper(self, fd):
-        print >> fd, '''static void
+        print_('''static void
 register_constants(PyObject *d)
 {
     PyObject *obj;
-'''
+''', file=fd)
         for c in self.binding_data.constants:
             if c[0] == 'i':
-                print >> fd, '    obj = PyInt_FromLong(%s);' % c[1]
+                print_('    obj = PyInt_FromLong(%s);' % c[1], file=fd)
             elif c[0] == 's':
-                print >> fd, '    obj = PyString_FromString((char*)%s);' % c[1]
+                print_('    obj = PyString_FromString((char*)%s);' % c[1], file=fd)
             elif c[0] == 'b':
-                print >> fd, '''\
+                print_('''\
 #ifdef %s
     obj = Py_True;
 #else
     obj = Py_False;
-#endif''' % c[1]
+#endif''' % c[1], file=fd)
             else:
-                print >> sys.stderr, 'E: unknown constant type: %r' % c[0]
-            print >> fd, '    PyDict_SetItemString(d, "%s", obj);' % c[1][6:]
-            print >> fd, '    Py_DECREF(obj);'
-        print >> fd, '}'
-        print >> fd, ''
+                print_('E: unknown constant type: %r' % c[0], file=sys.stderr)
+            print_('    PyDict_SetItemString(d, "%s", obj);' % c[1][6:], file=fd)
+            print_('    Py_DECREF(obj);', file=fd)
+        print_('}', file=fd)
+        print_('', file=fd)
 
 
     def generate_member_wrapper(self, c, fd):
@@ -729,154 +736,154 @@ register_constants(PyObject *d)
             name = arg_name(m)
             mname = format_as_camelcase(arg_name(m))
             # getter
-            print >> fd, '''static PyObject*
+            print_('''static PyObject*
 %s_%s_get(G_GNUC_UNUSED PyObject *self, PyObject *args)
-{''' % (klassname[5:], mname)
+{''' % (klassname[5:], mname), file=fd)
             self.wrapper_list.append('%s_%s_get' % (klassname[5:], mname))
 
             ftype = arg_type(m)
             if is_cstring(m):
                 ftype = 'char*'
-            print >> fd, '    %s return_value;' % ftype
-            print >> fd, '    PyObject* return_pyvalue;'
-            print >> fd, '    PyGObjectPtr* cvt_this;'
-            print >> fd, '    %s* this;' % klassname
-            print >> fd, ''
-            print >> fd, '    if (! PyArg_ParseTuple(args, "O", &cvt_this)) return NULL;'
-            print >> fd, '    this = (%s*)cvt_this->obj;' % klassname
-            print >> fd, '    return_value = this->%s;' % arg_name(m)
+            print_('    %s return_value;' % ftype, file=fd)
+            print_('    PyObject* return_pyvalue;', file=fd)
+            print_('    PyGObjectPtr* cvt_this;', file=fd)
+            print_('    %s* this;' % klassname, file=fd)
+            print_('', file=fd)
+            print_('    if (! PyArg_ParseTuple(args, "O", &cvt_this)) return NULL;', file=fd)
+            print_('    this = (%s*)cvt_this->obj;' % klassname, file=fd)
+            print_('    return_value = this->%s;' % arg_name(m), file=fd)
             try:
                 self.return_value(fd, m)
             except:
-                print >>sys.stderr, 'W: cannot make an assignment for', c, m
+                print_('W: cannot make an assignment for', c, m, file=sys.stderr)
                 raise
-            print >> fd, '    return return_pyvalue;'
-            print >> fd, '}'
-            print >> fd, ''
+            print_('    return return_pyvalue;', file=fd)
+            print_('}', file=fd)
+            print_('', file=fd)
 
             # setter
-            print >> fd, '''static PyObject*
+            print_('''static PyObject*
 %s_%s_set(G_GNUC_UNUSED PyObject *self, PyObject *args)
-{''' % (klassname[5:], mname)
+{''' % (klassname[5:], mname), file=fd)
             self.wrapper_list.append('%s_%s_set' % (klassname[5:], mname))
 
-            print >> fd, '    PyGObjectPtr* cvt_this;'
-            print >> fd, '    %s* this;' % klassname
+            print_('    PyGObjectPtr* cvt_this;', file=fd)
+            print_('    %s* this;' % klassname, file=fd)
             type = m[0]
             # Determine type class
             if is_cstring(m):
                 type = type.replace('const ', '')
                 parse_format = 'z'
                 parse_arg = '&value'
-                print >> fd, '    %s value;' % type
+                print_('    %s value;' % type, file=fd)
             elif is_int(m, self.binding_data):
                 parse_format = 'l'
                 parse_arg = '&value'
-                print >> fd, '    long value;'
+                print_('    long value;', file=fd)
             elif is_glist(m) or is_hashtable(m) or is_xml_node(m) or is_boolean(m):
                 parse_format = 'O'
-                print >> fd, '    PyObject *cvt_value;'
+                print_('    PyObject *cvt_value;', file=fd)
                 parse_arg = '&cvt_value'
             elif is_object(m):
                 parse_format = 'O'
-                print >> fd, '    PyGObjectPtr *cvt_value;'
+                print_('    PyGObjectPtr *cvt_value;', file=fd)
                 parse_arg = '&cvt_value'
             else:
                 raise Exception('Unsupported field: %s' % (m,))
             # Get GObject
-            print >> fd, '    if (! PyArg_ParseTuple(args, "O%s", &cvt_this, %s)) return NULL;' % (
-                    parse_format, parse_arg)
-            print >> fd, '    this = (%s*)cvt_this->obj;' % klassname
+            print_('    if (! PyArg_ParseTuple(args, "O%s", &cvt_this, %s)) return NULL;' % (
+                    parse_format, parse_arg), file=fd)
+            print_('    this = (%s*)cvt_this->obj;' % klassname, file=fd)
             # Change value
             if is_int(m, self.binding_data):
-                print >> fd, '    this->%s = value;' % name
+                print_('    this->%s = value;' % name, file=fd)
             elif is_boolean(m):
-                print >> fd, '    this->%s = PyInt_AS_LONG(cvt_value) ? TRUE : FALSE;' % name
+                print_('    this->%s = PyInt_AS_LONG(cvt_value) ? TRUE : FALSE;' % name, file=fd)
             elif is_cstring(m):
-                print >> fd, '    lasso_assign_string(this->%s, value);' % name
+                print_('    lasso_assign_string(this->%s, value);' % name, file=fd)
             elif is_xml_node(m):
-                print >> fd, '    if (this->%s) xmlFreeNode(this->%s);' % (name, name)
-                print >> fd, '    this->%s = get_xml_node_from_pystring(cvt_value);' % name
+                print_('    if (this->%s) xmlFreeNode(this->%s);' % (name, name), file=fd)
+                print_('    this->%s = get_xml_node_from_pystring(cvt_value);' % name, file=fd)
             elif is_glist(m):
                 el_type = element_type(m)
                 if is_cstring(el_type):
-                    print >> fd, '    set_list_of_strings(&this->%s, cvt_value);' % name
+                    print_('    set_list_of_strings(&this->%s, cvt_value);' % name, file=fd)
                 elif is_xml_node(el_type):
-                    print >> fd, '    set_list_of_xml_nodes(&this->%s, cvt_value);' % name
+                    print_('    set_list_of_xml_nodes(&this->%s, cvt_value);' % name, file=fd)
                 elif is_object(el_type):
-                    print >> fd, '    set_list_of_pygobject(&this->%s, cvt_value);' % name
+                    print_('    set_list_of_pygobject(&this->%s, cvt_value);' % name, file=fd)
                 else:
                     raise Exception('Unsupported setter for %s' % (m,))
             elif is_hashtable(m):
                 el_type = element_type(m)
                 if is_object(el_type):
-                    print >> fd, '    set_hashtable_of_pygobject(this->%s, cvt_value);' % name
+                    print_('    set_hashtable_of_pygobject(this->%s, cvt_value);' % name, file=fd)
                 else:
-                    print >> fd, '    set_hashtable_of_strings(this->%s, cvt_value);' % name
+                    print_('    set_hashtable_of_strings(this->%s, cvt_value);' % name, file=fd)
             elif is_object(m):
-                print >> fd, '    set_object_field((GObject**)&this->%s, cvt_value);' % name
+                print_('    set_object_field((GObject**)&this->%s, cvt_value);' % name, file=fd)
             else:
                 raise Exception('Unsupported member %s.%s' % (klassname, m))
-            print >> fd, '    return noneRef();'
-            print >> fd, '}'
-            print >> fd, ''
+            print_('    return noneRef();', file=fd)
+            print_('}', file=fd)
+            print_('', file=fd)
 
 
     def return_value(self, fd, arg, return_var_name = 'return_value', return_pyvar_name = 'return_pyvalue'):
         if is_boolean(arg):
-            print >> fd, '    if (%s) {' % return_var_name
-            print >> fd, '        Py_INCREF(Py_True);'
-            print >> fd, '        %s = Py_True;' % return_pyvar_name
-            print >> fd, '    } else {'
-            print >> fd, '        Py_INCREF(Py_False);'
-            print >> fd, '        %s = Py_False;' % return_pyvar_name
-            print >> fd, '    }'
+            print_('    if (%s) {' % return_var_name, file=fd)
+            print_('        Py_INCREF(Py_True);', file=fd)
+            print_('        %s = Py_True;' % return_pyvar_name, file=fd)
+            print_('    } else {', file=fd)
+            print_('        Py_INCREF(Py_False);', file=fd)
+            print_('        %s = Py_False;' % return_pyvar_name, file=fd)
+            print_('    }', file=fd)
         elif is_int(arg, self.binding_data):
-            print >> fd, '    %s = PyInt_FromLong(%s);' % (return_pyvar_name, return_var_name)
+            print_('    %s = PyInt_FromLong(%s);' % (return_pyvar_name, return_var_name), file=fd)
         elif is_cstring(arg) and is_transfer_full(arg):
-            print >> fd, '    if (%s) {' % return_var_name
-            print >> fd, '        %s = PyString_FromString(%s);' % (return_pyvar_name, return_var_name)
-            print >> fd, '    } else {'
-            print >> fd, '        %s = noneRef();' % return_pyvar_name
-            print >> fd, '    }'
+            print_('    if (%s) {' % return_var_name, file=fd)
+            print_('        %s = PyString_FromString(%s);' % (return_pyvar_name, return_var_name), file=fd)
+            print_('    } else {', file=fd)
+            print_('        %s = noneRef();' % return_pyvar_name, file=fd)
+            print_('    }', file=fd)
         elif is_cstring(arg):
-            print >> fd, '    if (%s) {' % return_var_name
-            print >> fd, '        %s = PyString_FromString(%s);' % (return_pyvar_name, return_var_name)
-            print >> fd, '    } else {'
-            print >> fd, '        %s = noneRef();' % return_pyvar_name
-            print >> fd, '    }'
+            print_('    if (%s) {' % return_var_name, file=fd)
+            print_('        %s = PyString_FromString(%s);' % (return_pyvar_name, return_var_name), file=fd)
+            print_('    } else {', file=fd)
+            print_('        %s = noneRef();' % return_pyvar_name, file=fd)
+            print_('    }', file=fd)
         elif is_glist(arg):
             el_type = element_type(arg)
             if is_object(el_type):
-                print >> fd, '    %s = get_list_of_pygobject(%s);' % (return_pyvar_name, return_var_name)
+                print_('    %s = get_list_of_pygobject(%s);' % (return_pyvar_name, return_var_name), file=fd)
             elif is_cstring(el_type):
-                print >> fd, '    %s = get_list_of_strings(%s);' % (return_pyvar_name, return_var_name)
+                print_('    %s = get_list_of_strings(%s);' % (return_pyvar_name, return_var_name), file=fd)
             elif is_xml_node(el_type):
-                print >> fd, '    %s = get_list_of_xml_nodes(%s);' % (return_pyvar_name, return_var_name)
+                print_('    %s = get_list_of_xml_nodes(%s);' % (return_pyvar_name, return_var_name), file=fd)
             else:
                 raise Exception('failed to make an assignment for %s' % (arg,))
         elif is_hashtable(arg):
             el_type = element_type(arg)
             if is_object(el_type):
-                print >> fd, '    %s = get_dict_from_hashtable_of_objects(%s);' % (return_pyvar_name, return_var_name)
+                print_('    %s = get_dict_from_hashtable_of_objects(%s);' % (return_pyvar_name, return_var_name), file=fd)
             else:
-                print >> fd, '    %s = get_dict_from_hashtable_of_strings(%s);' % (return_pyvar_name, return_var_name)
+                print_('    %s = get_dict_from_hashtable_of_strings(%s);' % (return_pyvar_name, return_var_name), file=fd)
         elif is_xml_node(arg):
             # convert xmlNode* to strings
-            print >> fd, '    if (%s) {' % return_var_name
-            print >> fd, '        %s = get_pystring_from_xml_node(%s);' % (return_pyvar_name, return_var_name)
-            print >> fd, '    } else {'
-            print >> fd, '        %s = noneRef();' % return_pyvar_name
-            print >> fd, '    }'
+            print_('    if (%s) {' % return_var_name, file=fd)
+            print_('        %s = get_pystring_from_xml_node(%s);' % (return_pyvar_name, return_var_name), file=fd)
+            print_('    } else {', file=fd)
+            print_('        %s = noneRef();' % return_pyvar_name, file=fd)
+            print_('    }', file=fd)
         elif is_object(arg):
             # return a PyGObjectPtr (wrapper around GObject)
-            print >> fd, '''\
+            print_('''\
     if (%s) {
         %s = PyGObjectPtr_New(G_OBJECT(%s));
     } else {
         %s = noneRef();
     }
-''' % (return_var_name, return_pyvar_name, return_var_name, return_pyvar_name)
+''' % (return_var_name, return_pyvar_name, return_var_name, return_pyvar_name), file=fd)
         else:
             raise Exception('failed to make an assignment for %s' % (arg,))
 
@@ -888,9 +895,9 @@ register_constants(PyObject *d)
         else:
             name = m.name[6:]
         self.wrapper_list.append(name)
-        print >> fd, '''static PyObject*
+        print_('''static PyObject*
 %s(G_GNUC_UNUSED PyObject *self, PyObject *args)
-{''' % name
+{''' % name, file=fd)
         parse_tuple_format = []
         parse_tuple_args = []
         for arg in m.args:
@@ -939,22 +946,22 @@ register_constants(PyObject *d)
                 parse_tuple_args.pop()
                 parse_tuple_args.append('&cvt_%s_out' % aname)
                 python_cvt_def = '    PyObject *cvt_%s_out = NULL;' % aname
-                print >> fd, '    PyObject *out_pyvalue = NULL;'
-            print >> fd, arg_def
+                print_('    PyObject *out_pyvalue = NULL;', file=fd)
+            print_(arg_def, file=fd)
             if python_cvt_def:
-                print >> fd, python_cvt_def
+                print_(python_cvt_def, file=fd)
 
         if m.return_type:
-            print >> fd, '    %s return_value;' % m.return_type
-            print >> fd, '    PyObject* return_pyvalue = NULL;'
-        print >> fd, ''
+            print_('    %s return_value;' % m.return_type, file=fd)
+            print_('    PyObject* return_pyvalue = NULL;', file=fd)
+        print_('', file=fd)
 
         parse_tuple_args = ', '.join(parse_tuple_args)
         if parse_tuple_args:
             parse_tuple_args = ', ' + parse_tuple_args
 
-        print >> fd, '    if (! PyArg_ParseTuple(args, "%s"%s)) return NULL;' % (
-                ''.join(parse_tuple_format), parse_tuple_args)
+        print_('    if (! PyArg_ParseTuple(args, "%s"%s)) return NULL;' % (
+                ''.join(parse_tuple_format), parse_tuple_args), file=fd)
 
         for f, arg in zip([ x for x in parse_tuple_format if x != '|'], m.args):
             if is_out(arg):
@@ -962,40 +969,40 @@ register_constants(PyObject *d)
             if is_list(arg):
                 qualifier = element_type(arg)
                 if is_cstring(qualifier):
-                    print >> fd, '    set_list_of_strings(&%s, cvt_%s);' % (arg[1], arg[1])
+                    print_('    set_list_of_strings(&%s, cvt_%s);' % (arg[1], arg[1]), file=fd)
                 elif qualifier == 'xmlNode*':
-                    print >> fd, '    set_list_of_xml_nodes(&%s, cvt_%s);' % (arg[1], arg[1])
-                elif isinstance(qualifier, basestring) and qualifier.startswith('Lasso'):
-                    print >> fd, '    set_list_of_pygobject(&%s, cvt_%s);' % (arg[1], arg[1])
+                    print_('    set_list_of_xml_nodes(&%s, cvt_%s);' % (arg[1], arg[1]), file=fd)
+                elif isinstance(qualifier, str) and qualifier.startswith('Lasso'):
+                    print_('    set_list_of_pygobject(&%s, cvt_%s);' % (arg[1], arg[1]), file=fd)
                 else:
-                    print >> sys.stderr, 'E: unqualified GList argument in', name, qualifier, arg
+                    print_('E: unqualified GList argument in', name, qualifier, arg, file=sys.stderr)
             elif is_xml_node(arg):
-                print >> fd, '    %s = get_xml_node_from_pystring(cvt_%s);' % (arg[1], arg[1])
+                print_('    %s = get_xml_node_from_pystring(cvt_%s);' % (arg[1], arg[1]), file=fd)
             elif is_time_t_pointer(arg):
-                print >> fd, '    %s = get_time_t(cvt_%s);' % (arg[1], arg[1])
+                print_('    %s = get_time_t(cvt_%s);' % (arg[1], arg[1]), file=fd)
             elif f == 'O':
                 if is_optional(arg):
-                    print >> fd, '    if (PyObject_TypeCheck((PyObject*)cvt_%s, &PyGObjectPtrType)) {' % arg[1]
-                    print >> fd, '        %s = (%s)cvt_%s->obj;' % (arg[1], arg[0], arg[1])
-                    print >> fd, '    } else {'
-                    print >> fd, '        %s = NULL;' % arg[1]
-                    print >> fd, '    }'
+                    print_('    if (PyObject_TypeCheck((PyObject*)cvt_%s, &PyGObjectPtrType)) {' % arg[1], file=fd)
+                    print_('        %s = (%s)cvt_%s->obj;' % (arg[1], arg[0], arg[1]), file=fd)
+                    print_('    } else {', file=fd)
+                    print_('        %s = NULL;' % arg[1], file=fd)
+                    print_('    }', file=fd)
                 else:
-                    print >> fd, '    if (PyObject_TypeCheck((PyObject*)cvt_%s, &PyGObjectPtrType)) {' % arg[1]
-                    print >> fd, '        %s = (%s)cvt_%s->obj;' % (arg[1], arg[0], arg[1])
-                    print >> fd, '    } else {'
-                    print >> fd, '        PyErr_SetString(PyExc_TypeError, "value should be a PyGObject");'
-                    print >> fd, '        return NULL;'
-                    print >> fd, '    }'
+                    print_('    if (PyObject_TypeCheck((PyObject*)cvt_%s, &PyGObjectPtrType)) {' % arg[1], file=fd)
+                    print_('        %s = (%s)cvt_%s->obj;' % (arg[1], arg[0], arg[1]), file=fd)
+                    print_('    } else {', file=fd)
+                    print_('        PyErr_SetString(PyExc_TypeError, "value should be a PyGObject");', file=fd)
+                    print_('        return NULL;', file=fd)
+                    print_('    }', file=fd)
 
 
         if m.return_type:
-            print >> fd, '    return_value =',
+            print_('    return_value =', file=fd)
             if 'new' in m.name:
-                print >> fd, '(%s)' % m.return_type,
+                print_('(%s)' % m.return_type, file=fd)
         else:
-            print >> fd, '   ',
-        print >> fd, '%s(%s);' % (m.name, ', '.join([ref_name(x) for x in m.args]))
+            print_('   ', file=fd)
+        print_('%s(%s);' % (m.name, ', '.join([ref_name(x) for x in m.args])), file=fd)
 
         if m.return_type:
             # Constructor so decrease refcount (it was incremented by PyGObjectPtr_New called
@@ -1003,7 +1010,7 @@ register_constants(PyObject *d)
             try:
                 self.return_value(fd, m.return_arg)
             except:
-                print >>sys.stderr, 'W: cannot assign return value of', m
+                print_('W: cannot assign return value of', m, file=sys.stderr)
                 raise
 
             if is_transfer_full(m.return_arg, default=True):
@@ -1011,33 +1018,33 @@ register_constants(PyObject *d)
         for f, arg in zip(parse_tuple_format, m.args):
             if is_out(arg):
                 self.return_value(fd, arg, return_var_name = arg[1], return_pyvar_name = 'out_pyvalue')
-                print >> fd, '    PyList_SetItem(cvt_%s_out, 0, out_pyvalue);' % arg[1]
+                print_('    PyList_SetItem(cvt_%s_out, 0, out_pyvalue);' % arg[1], file=fd)
             elif arg[0] == 'GList*':
                 qualifier = arg[2].get('element-type')
                 if qualifier == 'char*':
-                    print >> fd, '    free_list(&%s, (GFunc)g_free);' % arg[1]
+                    print_('    free_list(&%s, (GFunc)g_free);' % arg[1], file=fd)
                 elif qualifier == 'xmlNode*':
-                    print >> fd, '    free_list(&%s, (GFunc)xmlFreeNode);' % arg[1]
+                    print_('    free_list(&%s, (GFunc)xmlFreeNode);' % arg[1], file=fd)
                 elif qualifier == 'LassoNode':
-                    print >> fd, '    free_list(&%s, (GFunc)g_object_unref);' % arg[1]
+                    print_('    free_list(&%s, (GFunc)g_object_unref);' % arg[1], file=fd)
             elif is_time_t_pointer(arg):
-                print >> fd, '    if (%s) free(%s);' % (arg[1], arg[1])
+                print_('    if (%s) free(%s);' % (arg[1], arg[1]), file=fd)
             elif not is_transfer_full(arg) and is_xml_node(arg):
                 self.free_value(fd, arg)
 
         if not m.return_type:
-            print >> fd, '    return noneRef();'
+            print_('    return noneRef();', file=fd)
         else:
-            print >> fd, '    return return_pyvalue;'
-        print >> fd, '}'
-        print >> fd, ''
+            print_('    return return_pyvalue;', file=fd)
+        print_('}', file=fd)
+        print_('', file=fd)
 
     def generate_wrapper_list(self, fd):
-        print >> fd, '''
-static PyMethodDef lasso_methods[] = {'''
+        print_('''
+static PyMethodDef lasso_methods[] = {''', file=fd)
         for m in self.wrapper_list:
-            print >> fd, '    {"%s", %s, METH_VARARGS, NULL},' % (m, m)
-        print >> fd, '    {NULL, NULL, 0, NULL}'
-        print >> fd, '};'
-        print >> fd, ''
+            print_('    {"%s", %s, METH_VARARGS, NULL},' % (m, m), file=fd)
+        print_('    {NULL, NULL, 0, NULL}', file=fd)
+        print_('};', file=fd)
+        print_('', file=fd)
 

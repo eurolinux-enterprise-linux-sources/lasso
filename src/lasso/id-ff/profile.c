@@ -54,6 +54,8 @@
 #endif
 #include "../lasso_config.h"
 
+#include <stdio.h>
+
 /*****************************************************************************/
 /* public functions                                                          */
 /*****************************************************************************/
@@ -521,6 +523,74 @@ lasso_profile_get_server(LassoProfile *profile)
 }
 
 
+/**
+ * lasso_profile_get_message_id:
+ * @profile: a #LassoProfile object
+ *
+ * Return the messge ID.
+ *
+ * Return value:(transfer full)(allow-none): a newly allocated string or NULL
+ */
+char*
+lasso_profile_get_message_id(LassoProfile *profile)
+{
+	return g_strdup(profile->private_data->message_id);
+}
+
+/**
+ * lasso_profile_set_message_id:
+ * @profile: a #LassoProfile object
+ * @message_id: the message ID
+ *
+ * Set @message_id for the current conversation
+ *
+ */
+void
+lasso_profile_set_message_id(LassoProfile *profile, const char *message_id)
+{
+	if (! LASSO_IS_PROFILE(profile)) {
+		message(G_LOG_LEVEL_CRITICAL, "set_message_id called on something not a" \
+			"LassoProfile object: %p", profile);
+		return;
+	}
+	lasso_assign_string(profile->private_data->message_id, message_id);
+}
+
+/**
+ * lasso_profile_get_idp_list:
+ * @profile: a #LassoProfile object
+ *
+ * Return the messge ID.
+ *
+ * Return value: a #LassoNode, when using SAML 2.0 a #LassoSamlp2IDPList,
+ * when using ID-FF a #LassoLibIDPList.
+ */
+LassoNode*
+lasso_profile_get_idp_list(LassoProfile *profile)
+{
+	return profile->private_data->idp_list;
+}
+
+/**
+ * lasso_profile_set_idp_list:
+ * @profile: a #LassoProfile object
+ * @idp_list: a #LassoNode, when using SAML 2.0 a #LassoSamlp2IDPList,
+ * when using ID-FF a #LassoLibIDPList.
+ *
+ * Set @idp_list for the current conversation
+ *
+ */
+void
+lasso_profile_set_idp_list(LassoProfile *profile, const LassoNode *idp_list)
+{
+	if (! LASSO_IS_PROFILE(profile)) {
+		message(G_LOG_LEVEL_CRITICAL, "set_idp_list called on something not a" \
+			"LassoProfile object: %p", profile);
+		return;
+	}
+	lasso_assign_gobject(profile->private_data->idp_list, idp_list);
+}
+
 /*****************************************************************************/
 /* private methods                                                           */
 /*****************************************************************************/
@@ -734,6 +804,119 @@ lasso_profile_get_signature_status(LassoProfile *profile)
 	return profile->signature_status;
 }
 
+static xmlChar *
+extract_issuer(xmlTextReader *reader)
+{
+	const xmlChar *name;
+	const xmlChar *ns_uri;
+	xmlNode *node;
+
+	name = xmlTextReaderConstLocalName(reader);
+	ns_uri = xmlTextReaderConstNamespaceUri(reader);
+
+	if (strcmp((const char*)name, "Issuer"))
+		return NULL;
+	if (strcmp((const char*)ns_uri, LASSO_SAML2_ASSERTION_HREF))
+		return NULL;
+	node = xmlTextReaderExpand(reader);
+	return xmlNodeGetContent(node);
+}
+
+
+/**
+ * lasso_profile_get_issuer:
+ * @message: the HTTP query, POST content or SOAP message
+ *
+ * Extract the issuer of a message.
+ *
+ * Return value:(transfer full): Returns the issuer of the given message.
+ */
+char*
+lasso_profile_get_issuer(const char *message)
+{
+	xmlTextReader *reader;
+	char *result = NULL;
+	int count = 0, ret;
+	xmlChar *xml_result = NULL;
+	xmlChar *to_free = NULL;
+
+
+	reader = lasso_xmltextreader_from_message(message, &to_free);
+	if (! reader)
+		goto cleanup;
+	ret = xmlTextReaderRead(reader);
+	while (ret == 1) {
+		int node_type = xmlTextReaderNodeType(reader);
+		if (node_type == 1) {
+			count += 1;
+			xml_result = extract_issuer(reader);
+			if (xml_result)
+				break;
+		}
+		if (count == 3) {
+			break;
+		}
+		ret = xmlTextReaderRead(reader);
+	}
+	if (! xml_result)
+		goto cleanup;
+	result = g_strdup((char *)xml_result);
+cleanup:
+	if (xml_result)
+		lasso_release_xml_string(xml_result);
+	if (reader)
+		xmlFreeTextReader(reader);
+	if (to_free)
+		lasso_release_xml_string(to_free);
+	return result;
+}
+
+/**
+ * lasso_profile_get_request_id:
+ * @message: the HTTP query, POST content or SOAP message
+ *
+ * Extract the issuer of a message.
+ *
+ * Return value:(transfer full): Returns the issuer of the given message.
+ */
+char*
+lasso_profile_get_in_response_to(const char *message)
+{
+	xmlTextReader *reader;
+	char *result = NULL;
+	int ret;
+	int node_type = 0;
+	xmlChar *xml_result = NULL;
+	xmlChar *to_free = NULL;
+
+
+	reader = lasso_xmltextreader_from_message(message, &to_free);
+	if (! reader)
+		goto cleanup;
+	ret = xmlTextReaderRead(reader);
+	while (ret == 1) {
+		node_type = xmlTextReaderNodeType(reader);
+		if (node_type == 1) {
+			break;
+		}
+		ret = xmlTextReaderRead(reader);
+	}
+	if (node_type != 1)
+		goto cleanup;
+	xml_result = xmlTextReaderGetAttribute(reader, BAD_CAST "InResponseTo");
+	if (! xml_result)
+		goto cleanup;
+	result = g_strdup((char*)xml_result);
+cleanup:
+	if (reader)
+		xmlFreeTextReader(reader);
+	if (xml_result)
+		lasso_release_xml_string(xml_result);
+	if (to_free)
+		lasso_release_xml_string(to_free);
+	return result;
+}
+
 /*****************************************************************************/
 /* overridden parent class methods                                           */
 /*****************************************************************************/
@@ -776,6 +959,8 @@ instance_init(LassoProfile *profile)
 	profile->private_data->artifact = NULL;
 	profile->private_data->artifact_message = NULL;
 	profile->private_data->signature_hint = LASSO_PROFILE_SIGNATURE_HINT_MAYBE;
+	profile->private_data->message_id = NULL;
+	profile->private_data->idp_list = NULL;
 
 	profile->server = NULL;
 	profile->request = NULL;

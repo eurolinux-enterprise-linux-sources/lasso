@@ -13,9 +13,72 @@ typedef int Py_ssize_t;
 #define PY_SSIZE_T_MIN INT_MIN
 #endif
 
+/** @todo Remove Python 3 defines and update the code when Python 2 is out of the picture. */
+
+// Python 3 has unified int & long types.
+#if PY_MAJOR_VERSION >= 3
+#define PyInt_AS_LONG PyLong_AS_LONG
+#define PyInt_Check PyLong_Check
+#define PyInt_FromLong PyLong_FromLong
+#endif
+
+// Python 3 has removed PyString and related functions, in favor of PyBytes & PyUnicode.
+#if PY_MAJOR_VERSION > 3 || (PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION >= 3)
+#define PyString_Check PyUnicode_Check
+#define PyString_FromFormat PyUnicode_FromFormat
+#define PyString_FromString PyUnicode_FromString
+#define PyString_AsString PyUnicode_AsUTF8
+static Py_ssize_t PyString_Size(PyObject *string) {
+	Py_ssize_t size;
+	char *ret = PyUnicode_AsUTF8AndSize(string, &size);
+	if (! ret) {
+		return -1;
+	}
+	return size;
+}
+#define get_pystring PyUnicode_AsUTF8AndSize
+#define PyStringFree(string) ;
+#elif PY_MAJOR_VERSION >= 3
+#define PyString_Check PyUnicode_Check
+#define PyString_FromFormat PyUnicode_FromFormat
+#define PyString_FromString PyUnicode_FromString
+static char *PyString_AsString(PyObject *string) {
+	PyObject *bytes = PyUnicode_AsUTF8String(string);
+	char *ret = NULL;
+	if (! bytes)
+		return NULL;
+	ret = g_strdup(PyBytes_AsString(bytes));
+	Py_DECREF(bytes);
+	return ret;
+}
+static char *get_pystring(PyObject *string, Py_ssize_t *size) {
+	char *ret = NULL;
+
+	ret = PyString_AsString(string);
+	*size = strlen(ret);
+	return ret;
+}
+#define PyStringFree(string) g_free(string)
+#elif PY_MAJOR_VERSION >= 3
+#else
+static char *get_pystring(PyObject *string, Py_ssize_t *size) {
+	char *ret = NULL;
+
+	PyString_AsStringAndSize(string, &ret, size);
+
+	return ret;
+}
+#define PyStringFree(string) ;
+#endif
+
 GQuark lasso_wrapper_key;
 
+
+#if PY_MAJOR_VERSION > 3
+PyMODINIT_FUNC PyInit_lasso(void);
+#else
 PyMODINIT_FUNC init_lasso(void);
+#endif
 G_GNUC_UNUSED static PyObject* get_pystring_from_xml_node(xmlNode *xmlnode);
 G_GNUC_UNUSED static xmlNode*  get_xml_node_from_pystring(PyObject *string);
 G_GNUC_UNUSED static PyObject* get_dict_from_hashtable_of_objects(GHashTable *value);
@@ -195,7 +258,7 @@ set_hashtable_of_pygobject(GHashTable *a_hash, PyObject *dict) {
 	g_hash_table_remove_all (a_hash);
 	i = 0;
 	while (PyDict_Next(dict, &i, &key, &value)) {
-		char *ckey = g_strdup(PyString_AsString(key));
+		char *ckey = PyString_AsString(key);
 		g_hash_table_replace (a_hash, ckey, ((PyGObjectPtr*)value)->obj);
 	}
 	return;
@@ -240,7 +303,7 @@ set_hashtable_of_strings(GHashTable *a_hash, PyObject *dict)
 	while (PyDict_Next(dict, &i, &key, &value)) {
 		char *ckey = PyString_AsString(key);
 		char *cvalue = PyString_AsString(value);
-		g_hash_table_insert (a_hash, g_strdup(ckey), g_strdup(cvalue));
+		g_hash_table_insert (a_hash, ckey, cvalue);
 	}
 failure:
 	return;
@@ -336,8 +399,13 @@ failure:
 
 static xmlNode*
 get_xml_node_from_pystring(PyObject *string) {
-	return lasso_string_fragment_to_xmlnode(PyString_AsString(string),
-			PyString_Size(string));
+	char *utf8 = NULL;
+	Py_ssize_t size;
+	xmlNode *xml_node;
+	utf8 = get_pystring(string, &size);
+	xml_node = lasso_string_fragment_to_xmlnode(utf8, size);
+	PyStringFree(utf8);
+	return xml_node;
 }
 
 /** Return a tuple containing the string contained in a_list */
@@ -485,7 +553,7 @@ PyGObjectPtr_dealloc(PyGObjectPtr *self)
 	g_object_set_qdata_full(self->obj, lasso_wrapper_key, NULL, NULL);
 	g_object_unref(self->obj);
 	Py_XDECREF(self->typename);
-	self->ob_type->tp_free((PyObject*)self);
+	Py_TYPE(self)->tp_free((PyObject*)self);
 }
 
 static int
@@ -557,8 +625,7 @@ static PyGetSetDef PyGObjectPtr_getseters[] = {
 
 
 static PyTypeObject PyGObjectPtrType = {
-	PyObject_HEAD_INIT(NULL)
-	0, /* ob_size */
+	PyVarObject_HEAD_INIT(NULL, 0 /* ob_size */)
 	"_lasso.PyGObjectPtr", /* tp_name */
 	sizeof(PyGObjectPtr),  /* tp_basicsize */
 	0,                     /* tp_itemsize */
@@ -586,7 +653,7 @@ static PyTypeObject PyGObjectPtrType = {
 	0,       /* tp_iter */
 	0,       /* tp_iternext */
 	0,       /* tp_methods */
-	PyGObjectPtr_members,   /* tp_members */
+	.tp_members=PyGObjectPtr_members,   /* tp_members */
 	PyGObjectPtr_getseters, /* tp_getset */
 	NULL,
 	NULL

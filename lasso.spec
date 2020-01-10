@@ -14,8 +14,8 @@
 
 Summary: Liberty Alliance Single Sign On
 Name: lasso
-Version: 2.4.1
-Release: 5%{?dist}
+Version: 2.5.0
+Release: 1%{?dist}
 License: GPLv2+
 Group: System Environment/Libraries
 Source: http://dev.entrouvert.org/lasso/lasso-%{version}.tar.gz
@@ -23,15 +23,12 @@ Source: http://dev.entrouvert.org/lasso/lasso-%{version}.tar.gz
 BuildRequires: cyrus-sasl-devel
 %endif
 BuildRequires: gtk-doc, libtool-ltdl-devel
-BuildRequires: glib2-devel, swig
+BuildRequires: glib2-devel >= 2.42, swig
+Requires: glib2 >= 2.42
 BuildRequires: libxml2-devel, xmlsec1-devel, openssl-devel, xmlsec1-openssl-devel
 BuildRequires: libtool autoconf automake
+BuildRequires: python-six
 Url: http://lasso.entrouvert.org/
-
-Patch01: 0001-Missing-variable-initialization.patch
-Patch02: 0002-Assert-on-missing-id.patch
-Patch03: 0001-xml-support-xsd-choices-by-allowing-to-rewind-or-adv.patch
-Patch04: 0002-xml-modify-xschema-snippets-to-handle-xsd-choice-con.patch
 
 %description
 Lasso is a library that implements the Liberty Alliance Single Sign On
@@ -107,10 +104,6 @@ library.
 
 %prep
 %setup -q -n %{name}-%{version}
-%patch01 -p1
-%patch02 -p1
-%patch03 -p1
-%patch04 -p1
 
 %build
 autoreconf -vif
@@ -219,6 +212,23 @@ rm -fr %{buildroot}%{_defaultdocdir}/%{name}
 %endif
 
 %changelog
+* Thu Sep  3 2015 John Dennis <jdennis@redhat.com> - 2.5.0-1
+- Rebase to upstream, now includes our ECP patches, no need to patch any more
+  Resolves: #1205342
+
+* Tue Sep  1 2015 John Dennis <jdennis@redhat.com> - 2.4.1-8
+- Add explicit minimum dependency on glib2 2.42,
+  for some reason RPM is not automatically detecting the dependency
+  Resolves: #1254989
+
+* Wed Aug 19 2015 John Dennis <jdennis@redhat.com> - 2.4.1-7
+- Add ECP support, brings Lasso up to current upstream tip + revised ECP patches
+  Resolves: #1205342
+
+* Mon Jun 22 2015 John Dennis <jdennis@redhat.com> - 2.4.1-6
+- Add ECP support, brings Lasso up to current upstream tip + ECP patches
+  Resolves: #1205342
+
 * Fri Dec  5 2014 Simo Sorce <simo@redhat.com> - 2.4.1-5
 - Add support for ADFS interoperability
 - Resolves: #1160803

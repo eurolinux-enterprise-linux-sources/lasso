@@ -49,6 +49,12 @@
 #define RSA_SHA1 "RSA_SHA1"
 #define DSA_SHA1 "DSA_SHA1"
 #define HMAC_SHA1 "HMAC_SHA1"
+#define RSA_SHA256 "RSA_SHA256"
+#define HMAC_SHA256 "HMAC_SHA256"
+#define RSA_SHA384 "RSA_SHA384"
+#define HMAC_SHA384 "HMAC_SHA384"
+#define RSA_SHA512 "RSA_SHA512"
+#define HMAC_SHA512 "HMAC_SHA512"
 
 /*****************************************************************************/
 /* public methods                                                            */
@@ -248,6 +254,34 @@ cleanup:
 	return rc;
 }
 
+/**
+ * lasso_server_get_endpoint_url_by_id:
+ * @server: a #LassoServer
+ * @provider_id: the EntityID whose endpoints will be examined.
+ * @endpoint_description: string describing criteria used to select endpoint.
+ *
+ * Locate the provider in the server's list of providers, then select an
+ * endpoint given the @endpoint_description and return than endpoint's URL.
+ * If the provider cannot be found or if the provider does not have a
+ * matching endpoint NULL will be returned.
+ *
+ * Returns: url (must be freed by caller)
+ */
+gchar *
+lasso_server_get_endpoint_url_by_id(const LassoServer *server, const gchar *provider_id,
+									const gchar *endpoint_description)
+{
+	LassoProvider *provider;
+	gchar *url = NULL;
+
+	provider = lasso_server_get_provider(server, provider_id);
+	if (!provider) return NULL;
+
+	url = lasso_provider_get_metadata_one(provider, endpoint_description);
+
+	return url;
+}
+
 /*****************************************************************************/
 /* private methods                                                           */
 /*****************************************************************************/
@@ -283,7 +317,12 @@ static xmlNode*
 get_xmlNode(LassoNode *node, gboolean lasso_dump)
 {
 	LassoServer *server = LASSO_SERVER(node);
-	char *signature_methods[] = { NULL, RSA_SHA1, DSA_SHA1, HMAC_SHA1};
+	char *signature_methods[] = { NULL,
+		RSA_SHA1, DSA_SHA1, HMAC_SHA1,
+		RSA_SHA256, HMAC_SHA256,
+		RSA_SHA384, HMAC_SHA384,
+		RSA_SHA512, HMAC_SHA512,
+	};
 	xmlNode *xmlnode = NULL, *ret_xmlnode = NULL;
 
 	xmlnode = parent_class->get_xmlNode(node, lasso_dump);
@@ -339,6 +378,18 @@ init_from_xml(LassoNode *node, xmlNode *xmlnode)
 		server->signature_method = LASSO_SIGNATURE_METHOD_DSA_SHA1;
 	else if (lasso_strisequal((char*) s, HMAC_SHA1))
 		server->signature_method = LASSO_SIGNATURE_METHOD_HMAC_SHA1;
+	else if (lasso_strisequal((char*) s, RSA_SHA256))
+		server->signature_method = LASSO_SIGNATURE_METHOD_RSA_SHA256;
+	else if (lasso_strisequal((char*) s, HMAC_SHA256))
+		server->signature_method = LASSO_SIGNATURE_METHOD_HMAC_SHA256;
+	else if (lasso_strisequal((char*) s, RSA_SHA384))
+		server->signature_method = LASSO_SIGNATURE_METHOD_RSA_SHA384;
+	else if (lasso_strisequal((char*) s, HMAC_SHA384))
+		server->signature_method = LASSO_SIGNATURE_METHOD_HMAC_SHA384;
+	else if (lasso_strisequal((char*) s, RSA_SHA512))
+		server->signature_method = LASSO_SIGNATURE_METHOD_RSA_SHA512;
+	else if (lasso_strisequal((char*) s, HMAC_SHA512))
+		server->signature_method = LASSO_SIGNATURE_METHOD_HMAC_SHA512;
 	else {
 		warning("Unable to rebuild a LassoServer object from XML, bad SignatureMethod: %s",
 			s);
@@ -505,6 +556,63 @@ lasso_server_get_providerID_from_hash(LassoServer *server, gchar *b64_hash)
 	if (g_hash_table_find(server->providers, (GHRFunc)get_providerID_with_hash, &providerID))
 		return g_strdup(providerID);
 	return NULL;
+}
+
+typedef struct {
+	GList *provider_list;
+	LassoProvider *provider;
+	LassoProviderRole role;
+	LassoMdProtocolType protocol_type;
+	LassoHttpMethod http_method;
+} FilteredProviderListContext;
+
+static void
+filter_provider_list(G_GNUC_UNUSED gpointer key, gpointer value, gpointer user_data)
+{
+	LassoProvider *remote_provider = (LassoProvider*)value;
+	FilteredProviderListContext *context = (FilteredProviderListContext*)user_data;
+
+	if (remote_provider->role == context->role) {
+		if (lasso_provider_accept_http_method(context->provider, remote_provider,
+											  context->protocol_type, context->http_method, FALSE)) {
+			lasso_list_add_string(context->provider_list, remote_provider->ProviderID);
+		}
+	}
+}
+
+
+/**
+ * lasso_server_get_filtered_provider_list
+ * @server: a #LassoServer
+ * @role: each returned provider will match this #LassoProviderRole
+ * @protocol_type: provider must have endpoint matching #LassoMdProtocolType and @http_method
+ * @http_method: provider must have endpoint matching #LassoHttpMethod and @protocol_type
+ *
+ * Iterate over the @server providers and build a list of provider EntityID's who
+ * have the specified @role and at least one endpoint matching the
+ * @protocol_type and @http_method. Return a #GList list of EntityID's at the
+ * @provider_list pointer. The caller is responsible for freeing the @provider_list
+ * by calling lasso_release_list_of_strings().
+ *
+ * Return value:(transfer full)(element-type string):  #GList of matching provider EntityID's returned here.
+ */
+GList *
+lasso_server_get_filtered_provider_list(const LassoServer *server, LassoProviderRole role,
+										LassoMdProtocolType protocol_type,
+										LassoHttpMethod http_method)
+{
+	FilteredProviderListContext context;
+
+	context.provider_list = NULL;
+	context.provider = LASSO_PROVIDER(server);
+	context.role = role;
+	context.protocol_type = protocol_type;
+	context.http_method = http_method;
+
+	g_hash_table_foreach(server->providers,
+						 filter_provider_list, &context);
+
+	return context.provider_list;
 }
 
 /*****************************************************************************/
@@ -961,7 +1069,7 @@ lasso_server_get_encryption_private_keys(LassoServer *server)
  * </para></listitem>
  * <listitem><para>
  * LASSO_DS_ERROR_CA_CERT_CHAIN_LOAD_FAILED if the @trusted_root file cannot be loaded,
- * </listitem></para>
+ * </para></listitem>
  * </itemizedlist>
  */
 lasso_error_t

@@ -35,6 +35,7 @@ extern "C" {
 
 #include <libxml/uri.h>
 #include <libxml/tree.h>
+#include <libxml/xmlreader.h>
 
 #include "../export.h"
 #include "../errors.h"
@@ -100,6 +101,12 @@ typedef enum {
 	LASSO_SIGNATURE_METHOD_RSA_SHA1,
 	LASSO_SIGNATURE_METHOD_DSA_SHA1,
 	LASSO_SIGNATURE_METHOD_HMAC_SHA1,
+	LASSO_SIGNATURE_METHOD_RSA_SHA256,
+	LASSO_SIGNATURE_METHOD_HMAC_SHA256,
+	LASSO_SIGNATURE_METHOD_RSA_SHA384,
+	LASSO_SIGNATURE_METHOD_HMAC_SHA384,
+	LASSO_SIGNATURE_METHOD_RSA_SHA512,
+	LASSO_SIGNATURE_METHOD_HMAC_SHA512,
 	LASSO_SIGNATURE_METHOD_LAST
 } LassoSignatureMethod;
 
@@ -134,6 +141,9 @@ struct _LassoNodeClass {
 	xmlNode* (* get_xmlNode)        (LassoNode *node, gboolean lasso_dump);
 };
 
+#include "../xml/saml-2.0/samlp2_idp_list.h"
+
+
 LASSO_EXPORT GType lasso_node_get_type(void);
 
 LASSO_EXPORT LassoNode* lasso_node_new(void);
@@ -155,10 +165,17 @@ LASSO_EXPORT char* lasso_node_export_to_query_with_password(LassoNode *node,
 
 LASSO_EXPORT char* lasso_node_export_to_soap(LassoNode *node);
 
+LASSO_EXPORT char* lasso_node_export_to_soap_with_headers(LassoNode *node, GList *headers);
+
 LASSO_EXPORT gchar* lasso_node_export_to_xml(LassoNode *node);
 
 LASSO_EXPORT char* lasso_node_export_to_paos_request(LassoNode *node, const char *issuer,
 				const char *responseConsumerURL, const char *relay_state);
+
+LASSO_EXPORT char* lasso_node_export_to_paos_request_full(LassoNode *node, const char *issuer,
+									   const char *responseConsumerURL, const char *message_id,
+									   const char *relay_state, gboolean is_passive, gchar *provider_name,
+									   LassoSamlp2IDPList *idp_list);
 
 LASSO_EXPORT char* lasso_node_export_to_ecp_soap_response(LassoNode *node,
 				const char *assertionConsumerURL);

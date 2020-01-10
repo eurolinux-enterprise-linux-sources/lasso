@@ -5,11 +5,11 @@ endif
 
 liblassoincludedir = $(includedir)/lasso
 
-INCLUDES = -I$(top_builddir) -I$(top_srcdir) $(LASSO_CORE_CFLAGS)
+AM_CPPFLAGS = -I$(top_builddir) -I$(top_srcdir) $(LASSO_CORE_CFLAGS)
 
 ## Added to activate libtool 1.5.6 windows resources partial support
 LTRCCOMPILE = $(LIBTOOL) --tag=RC --mode=compile $(RC) \
-     `echo $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) |\
+     `echo $(DEFS) $(DEFAULT_INCLUDES) $(AM_CPPFLAGS) |\
          sed -e 's/-I/--include-dir /g;s/-D/--define /g'`
 
 ## Added to activate libtool 1.5.6 windows resources partial support
@@ -56,6 +56,7 @@ endif
 if MINGW
 liblasso_la_LIBADD = \
 	$(top_builddir)/lasso/xml/liblasso-xml.la \
+	$(top_builddir)/lasso/xml/ecp/liblasso-xml-ecp.la \
 	$(top_builddir)/lasso/xml/saml-2.0/liblasso-xml-saml2.la \
 	$(top_builddir)/lasso/xml/soap-1.1/liblasso-xml-soap11.la \
 	$(top_builddir)/lasso/xml/dsig/liblasso-xml-dsig.la \
@@ -72,6 +73,7 @@ liblasso_la_LDFLAGS = -no-undefined -version-info @LASSO_VERSION_INFO@ \
                       -Wl,--add-stdcall-alias 
 else
 liblasso_la_LIBADD = \
+	$(top_builddir)/lasso/xml/ecp/liblasso-xml-ecp.la \
 	$(top_builddir)/lasso/xml/liblasso-xml.la \
 	$(top_builddir)/lasso/xml/saml-2.0/liblasso-xml-saml2.la \
 	$(top_builddir)/lasso/xml/soap-1.1/liblasso-xml-soap11.la \

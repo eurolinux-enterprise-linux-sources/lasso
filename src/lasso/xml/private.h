@@ -49,7 +49,23 @@ typedef enum {
 	SNIPPET_LIST_XMLNODES,
 	SNIPPET_XMLNODE,
 	SNIPPET_COLLECT_NAMESPACES,
-
+	SNIPPET_JUMP_OFFSET_SIGN = 1 << 19,
+	SNIPPET_JUMP_OFFSET_SHIFT = 15,
+	SNIPPET_JUMP_OFFSET_MASK = 0x0f << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_1 = 1 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_2 = 2 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_3 = 3 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_4 = 4 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_5 = 5 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_6 = 6 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_JUMP_7 = 7 << SNIPPET_JUMP_OFFSET_SHIFT,
+	SNIPPET_BACK_1 = 1 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_2 = 2 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_3 = 3 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_4 = 4 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_5 = 5 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_6 = 6 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
+	SNIPPET_BACK_7 = 7 << SNIPPET_JUMP_OFFSET_SHIFT | SNIPPET_JUMP_OFFSET_SIGN,
 	/* transformers for content transformation */
 	SNIPPET_STRING  = 1 << 0, /* default, can be omitted */
 	SNIPPET_BOOLEAN = 1 << 20,
@@ -62,7 +78,15 @@ typedef enum {
 	SNIPPET_KEEP_XMLNODE = 1 << 27, /* force keep xmlNode */
 	SNIPPET_PRIVATE = 1 << 28, /* means that the offset is relative to a private extension */
 	SNIPPET_MANDATORY = 1 << 29, /* means that the element cardinality is at least 1 */
+	SNIPPET_JUMP_ON_MATCH = 1 << 30,
+	SNIPPET_JUMP_ON_MISS = 1 << 31,
+	SNIPPET_JUMP = SNIPPET_JUMP_ON_MISS | SNIPPET_JUMP_ON_MATCH,
+
 } SnippetType;
+
+#define SNIPPET_JUMP_OFFSET(type) ((type & SNIPPET_JUMP_OFFSET_SIGN) ? \
+		                      (-(type & SNIPPET_JUMP_OFFSET_MASK) >> SNIPPET_JUMP_OFFSET_SHIFT) \
+		                    : ((type & SNIPPET_JUMP_OFFSET_MASK) >> SNIPPET_JUMP_OFFSET_SHIFT))
 
 typedef enum {
 	NO_OPTION = 0,
@@ -200,6 +224,12 @@ int lasso_saml2_query_verify_signature(const char *query, const xmlSecKey *sende
 
 char* lasso_sha1(const char *str);
 
+char* lasso_sha256(const char *str);
+
+char* lasso_sha384(const char *str);
+
+char* lasso_sha512(const char *str);
+
 char** urlencoded_to_strings(const char *str);
 
 int lasso_sign_node(xmlNode *xmlnode, LassoSignatureContext context, const char *id_attr_name, const char *id_value);
@@ -304,6 +334,8 @@ void lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureCon
 		const char *id);
 
 gchar* lasso_xmlnode_build_deflated_query(xmlNode *xmlnode);
+
+xmlTextReader *lasso_xmltextreader_from_message(const char *message, xmlChar **to_free);
 
 #ifdef __cplusplus
 }

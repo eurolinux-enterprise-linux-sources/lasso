@@ -21,6 +21,12 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+/*
+ * The effect of defining the _DEFAULT_SOURCE macro is equivalent to
+ * the effect of explicitly defining three macros in earlier glibc
+ * versions: -D_BSD_SOURCE -D_SVID_SOURCE -D_POSIX_C_SOURCE=200809C
+ */
+#define _DEFAULT_SOURCE
 /* permit importation of strptime for glibc2 */
 #define _XOPEN_SOURCE
 /* permit importation of timegm for glibc2, wait for people to complain it does not work on their
@@ -488,6 +494,7 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 	xmlSecKeyData *key_data;
 	unsigned int sigret_size = 0;
 	LassoSignatureMethod sign_method;
+        lasso_error_t rc = 0;
 
 	g_return_val_if_fail(query != NULL, NULL);
 	g_return_val_if_fail(lasso_validate_signature_method(context.signature_method), NULL);
@@ -508,6 +515,24 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
 			algo_href = xmlSecHrefHmacSha1;
 			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+			algo_href = xmlSecHrefRsaSha256;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+			algo_href = xmlSecHrefHmacSha256;
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+			algo_href = xmlSecHrefRsaSha384;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+			algo_href = xmlSecHrefHmacSha384;
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+			algo_href = xmlSecHrefRsaSha512;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
+			algo_href = xmlSecHrefHmacSha512;
+			break;
 		case LASSO_SIGNATURE_METHOD_NONE:
 		case LASSO_SIGNATURE_METHOD_LAST:
 			g_assert_not_reached();
@@ -520,14 +545,41 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 	}
 
 	/* build buffer digest */
-	digest = lasso_sha1(new_query);
-	if (digest == NULL) {
-		message(G_LOG_LEVEL_CRITICAL, "Failed to build the buffer digest");
-		goto done;
+	switch (sign_method) {
+		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
+			digest = lasso_sha1(new_query);
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+			digest = lasso_sha256(new_query);
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+			digest = lasso_sha384(new_query);
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+			digest = lasso_sha512(new_query);
+		default:
+			break;
+	}
+	switch (sign_method) {
+		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+			if (digest == NULL) {
+				message(G_LOG_LEVEL_CRITICAL, "Failed to build the buffer digest");
+				goto done;
+			}
+		default:
+			break;
 	}
 	/* extract the OpenSSL key */
 	switch (sign_method) {
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
 			rsa = xmlSecOpenSSLKeyDataRsaGetRsa(key_data);
 			g_assert(rsa);
 			/* alloc memory for sigret */
@@ -540,8 +592,14 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 			sigret_size = DSA_size(dsa);
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
-			lasso_get_hmac_key(key, (void**)&hmac_key,
-					&hmac_key_length);
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
+			if ((rc = lasso_get_hmac_key(key, (void**)&hmac_key,
+										 &hmac_key_length))) {
+				message(G_LOG_LEVEL_CRITICAL, "Failed to get hmac key (%s)", lasso_strerror(rc));
+				goto done;
+			}
 			g_assert(hmac_key);
 			md = EVP_sha1();
 			sigret_size = EVP_MD_size(md);
@@ -558,6 +616,9 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 
 	switch (sign_method) {
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
 			/* sign digest message */
 			status = RSA_sign(NID_sha1, (unsigned char*)digest, 20, sigret,
 					&siglen, rsa);
@@ -567,6 +628,9 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 					&siglen, dsa);
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
 			HMAC(md, hmac_key, hmac_key_length, (unsigned char *)new_query,
 					strlen(new_query), sigret, &siglen);
 			status = 1;
@@ -592,6 +656,12 @@ lasso_query_sign(char *query, LassoSignatureContext context)
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
 		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
 			s_new_query = g_strdup_printf("%s&Signature=%s", new_query, (char*)
 					e_b64_sigret);
 			break;
@@ -644,6 +714,8 @@ lasso_query_verify_helper(const char *signed_content, const char *b64_signature,
 	const EVP_MD *md = NULL;
 	lasso_error_t rc = 0;
 	LassoSignatureMethod method = LASSO_SIGNATURE_METHOD_NONE;
+	size_t digest_size = 1;
+	int type = -1;
 
 	if (lasso_strisequal(algorithm, (char*)xmlSecHrefRsaSha1)) {
 		goto_cleanup_if_fail_with_rc(key->value->id == xmlSecOpenSSLKeyDataRsaId,
@@ -651,16 +723,59 @@ lasso_query_verify_helper(const char *signed_content, const char *b64_signature,
 		rsa = xmlSecOpenSSLKeyDataRsaGetRsa(key->value);
 		key_size = RSA_size(rsa);
 		method = LASSO_SIGNATURE_METHOD_RSA_SHA1;
+		digest_size = 20;
+		type = NID_sha1;
 	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefDsaSha1)) {
 		goto_cleanup_if_fail_with_rc(key->value->id == xmlSecOpenSSLKeyDataDsaId, LASSO_DS_ERROR_INVALID_SIGALG);
 		dsa = xmlSecOpenSSLKeyDataDsaGetDsa(key->value);
 		key_size = DSA_size(dsa);
 		method = LASSO_SIGNATURE_METHOD_DSA_SHA1;
+		digest_size = 20;
+		type = NID_sha1;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefRsaSha256)) {
+		goto_cleanup_if_fail_with_rc(key->value->id == xmlSecOpenSSLKeyDataRsaId,
+				LASSO_DS_ERROR_INVALID_SIGALG)
+		rsa = xmlSecOpenSSLKeyDataRsaGetRsa(key->value);
+		key_size = RSA_size(rsa);
+		method = LASSO_SIGNATURE_METHOD_RSA_SHA256;
+		digest_size = 32;
+		type = NID_sha256;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefRsaSha384)) {
+		goto_cleanup_if_fail_with_rc(key->value->id == xmlSecOpenSSLKeyDataRsaId,
+				LASSO_DS_ERROR_INVALID_SIGALG)
+		rsa = xmlSecOpenSSLKeyDataRsaGetRsa(key->value);
+		key_size = RSA_size(rsa);
+		method = LASSO_SIGNATURE_METHOD_RSA_SHA384;
+		digest_size = 48;
+		type = NID_sha384;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefRsaSha512)) {
+		goto_cleanup_if_fail_with_rc(key->value->id == xmlSecOpenSSLKeyDataRsaId,
+				LASSO_DS_ERROR_INVALID_SIGALG)
+		rsa = xmlSecOpenSSLKeyDataRsaGetRsa(key->value);
+		key_size = RSA_size(rsa);
+		method = LASSO_SIGNATURE_METHOD_RSA_SHA512;
+		digest_size = 64;
+		type = NID_sha512;
 	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefHmacSha1)) {
 		lasso_check_good_rc(lasso_get_hmac_key(key, (void**)&hmac_key, &hmac_key_length));
 		md = EVP_sha1();
 		key_size = EVP_MD_size(md);
 		method = LASSO_SIGNATURE_METHOD_HMAC_SHA1;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefHmacSha256)) {
+		lasso_check_good_rc(lasso_get_hmac_key(key, (void**)&hmac_key, &hmac_key_length));
+		md = EVP_sha256();
+		key_size = EVP_MD_size(md);
+		method = LASSO_SIGNATURE_METHOD_HMAC_SHA256;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefHmacSha384)) {
+		lasso_check_good_rc(lasso_get_hmac_key(key, (void**)&hmac_key, &hmac_key_length));
+		md = EVP_sha384();
+		key_size = EVP_MD_size(md);
+		method = LASSO_SIGNATURE_METHOD_HMAC_SHA384;
+	} else if (lasso_strisequal(algorithm, (char*)xmlSecHrefHmacSha512)) {
+		lasso_check_good_rc(lasso_get_hmac_key(key, (void**)&hmac_key, &hmac_key_length));
+		md = EVP_sha512();
+		key_size = EVP_MD_size(md);
+		method = LASSO_SIGNATURE_METHOD_HMAC_SHA512;
 	} else {
 		goto_cleanup_with_rc(LASSO_DS_ERROR_INVALID_SIGALG);
 	}
@@ -675,31 +790,52 @@ lasso_query_verify_helper(const char *signed_content, const char *b64_signature,
 		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
 			digest = lasso_sha1(signed_content);
 			break;
-		default:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+			digest = lasso_sha256(signed_content);
 			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+			digest = lasso_sha384(signed_content);
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+			digest = lasso_sha512(signed_content);
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
+			break;
+		default:
+			g_assert_not_reached();
 	}
 	/* verify signature */
 	switch (method) {
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
 			goto_cleanup_if_fail_with_rc(
 					RSA_verify(
-						NID_sha1,
+						type,
 						(unsigned char*)digest,
-						20,
+						digest_size,
 						signature,
 						key_size, rsa) == 1,
 					LASSO_DS_ERROR_INVALID_SIGNATURE);
 			break;
 		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
 			goto_cleanup_if_fail_with_rc(
-					DSA_verify(NID_sha1,
+					DSA_verify(
+						type,
 						(unsigned char*)digest,
-						20,
+						digest_size,
 						signature,
 						key_size, dsa) == 1,
 					LASSO_DS_ERROR_INVALID_SIGNATURE);
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
 			digest = g_malloc(key_size);
 			HMAC(md, hmac_key, hmac_key_length, (unsigned char*)signed_content,
 				strlen(signed_content), (unsigned char*)digest, NULL);
@@ -897,7 +1033,7 @@ cleanup:
  *
  * Builds the SHA-1 message digest (cryptographic hash) of @str
  *
- * Return value: 20-bytes buffer allocated with xmlMalloc
+ * Return value: 20-bytes buffer allocated with g_malloc
  **/
 char*
 lasso_sha1(const char *str)
@@ -909,6 +1045,66 @@ lasso_sha1(const char *str)
 
 	md = g_malloc(20);
 	return (char*)SHA1((unsigned char*)str, strlen(str), md);
+}
+
+/**
+ * lasso_sha256:
+ * @str: a string
+ *
+ * Builds the SHA-256 message digest (cryptographic hash) of @str
+ *
+ * Return value: 32-bytes buffer allocated with g_malloc
+ **/
+char*
+lasso_sha256(const char *str)
+{
+	xmlChar *md;
+
+	if (str == NULL)
+		return NULL;
+
+	md = g_malloc(32);
+	return (char*)SHA256((unsigned char*)str, strlen(str), md);
+}
+
+/**
+ * lasso_sha384:
+ * @str: a string
+ *
+ * Builds the SHA-384 message digest (cryptographic hash) of @str
+ *
+ * Return value: 48-bytes buffer allocated with g_malloc
+ **/
+char*
+lasso_sha384(const char *str)
+{
+	xmlChar *md;
+
+	if (str == NULL)
+		return NULL;
+
+	md = g_malloc(48);
+	return (char*)SHA384((unsigned char*)str, strlen(str), md);
+}
+
+/**
+ * lasso_sha512:
+ * @str: a string
+ *
+ * Builds the SHA-512 message digest (cryptographic hash) of @str
+ *
+ * Return value: 64-bytes buffer allocated with g_malloc
+ **/
+char*
+lasso_sha512(const char *str)
+{
+	xmlChar *md;
+
+	if (str == NULL)
+		return NULL;
+
+	md = g_malloc(64);
+	return (char*)SHA512((unsigned char*)str, strlen(str), md);
 }
 
 char**
@@ -1124,13 +1320,51 @@ lasso_get_query_string_param_value(const char *qs, const char *param_key, const 
 	}
 }
 
+unsigned char*
+lasso_inflate(unsigned char *input, size_t len)
+{
+	z_stream zstr;
+	unsigned char *output;
+	int z_err;
+
+	zstr.zalloc = NULL;
+	zstr.zfree = NULL;
+	zstr.opaque = NULL;
+
+	output = g_malloc(len*10);
+	zstr.avail_in = len;
+	zstr.next_in = (unsigned char*)input;
+	zstr.total_in = 0;
+	zstr.avail_out = len*10;
+	zstr.total_out = 0;
+	zstr.next_out = output;
+
+	z_err = inflateInit2(&zstr, -MAX_WBITS);
+	if (z_err != Z_OK) {
+		message(G_LOG_LEVEL_CRITICAL, "Failed to inflateInit");
+		lasso_release_string(output);
+		return FALSE;
+	}
+
+	z_err = inflate(&zstr, Z_FINISH);
+	if (z_err != Z_STREAM_END) {
+		message(G_LOG_LEVEL_CRITICAL, "Failed to inflate");
+		inflateEnd(&zstr);
+		lasso_release_string(output);
+		return NULL;
+	}
+	output[zstr.total_out] = 0;
+	inflateEnd(&zstr);
+
+	return output;
+}
+
+
 gboolean
 lasso_node_init_from_deflated_query_part(LassoNode *node, char *deflate_string)
 {
 	int len;
 	xmlChar *b64_zre, *zre, *re;
-	z_stream zstr;
-	int z_err;
 	xmlDoc *doc;
 	xmlNode *root;
 
@@ -1139,41 +1373,21 @@ lasso_node_init_from_deflated_query_part(LassoNode *node, char *deflate_string)
 	zre = xmlMalloc(len*4);
 	len = xmlSecBase64Decode(b64_zre, zre, len*4);
 	xmlFree(b64_zre);
-
-	zstr.zalloc = NULL;
-	zstr.zfree = NULL;
-	zstr.opaque = NULL;
-
-	zstr.avail_in = len;
-	re = xmlMalloc(len*10);
-	zstr.next_in = (xmlChar*)zre;
-	zstr.total_in = 0;
-	zstr.avail_out = len*10;
-	zstr.total_out = 0;
-	zstr.next_out = re;
-
-	z_err = inflateInit2(&zstr, -MAX_WBITS);
-	if (z_err != Z_OK) {
-		message(G_LOG_LEVEL_CRITICAL, "Failed to inflateInit");
+	if (len == -1) {
+		message(G_LOG_LEVEL_CRITICAL, "Failed to base64-decode query");
 		xmlFree(zre);
-		xmlFree(re);
 		return FALSE;
 	}
 
-	z_err = inflate(&zstr, Z_FINISH);
-	if (z_err != Z_STREAM_END) {
-		message(G_LOG_LEVEL_CRITICAL, "Failed to inflate");
-		inflateEnd(&zstr);
-		xmlFree(zre);
-		xmlFree(re);
-		return FALSE;
-	}
-	re[zstr.total_out] = 0;
-	inflateEnd(&zstr);
+	re = lasso_inflate(zre, len);
 	xmlFree(zre);
 
+	if (! re)
+		return FALSE;
+
 	doc = lasso_xml_parse_memory((char*)re, strlen((char*)re));
-	xmlFree(re);
+	lasso_release_string(re);
+
 	root = xmlDocGetRootElement(doc);
 	lasso_node_init_from_xml(node, root);
 	lasso_release_doc(doc);
@@ -1254,7 +1468,17 @@ lasso_saml_constrain_dsigctxt(xmlSecDSigCtxPtr dsigCtx) {
 			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformSha1Id) < 0) ||
 			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformHmacSha1Id) < 0) ||
 			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformDsaSha1Id) < 0) ||
-			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformRsaSha1Id) < 0)) {
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformRsaSha1Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformSha256Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformHmacSha256Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformRsaSha256Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformSha384Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformHmacSha384Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformRsaSha384Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformSha512Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformHmacSha512Id) < 0) ||
+			(xmlSecDSigCtxEnableSignatureTransform(dsigCtx, xmlSecTransformRsaSha512Id) < 0)
+			) {
 
 		message(G_LOG_LEVEL_CRITICAL, "Error: failed to limit allowed signature transforms");
 		return FALSE;
@@ -1262,6 +1486,9 @@ lasso_saml_constrain_dsigctxt(xmlSecDSigCtxPtr dsigCtx) {
 	if((xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformInclC14NId) < 0) ||
 			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformExclC14NId) < 0) ||
 			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformSha1Id) < 0) ||
+			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformSha256Id) < 0) ||
+			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformSha384Id) < 0) ||
+			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformSha512Id) < 0) ||
 			(xmlSecDSigCtxEnableReferenceTransform(dsigCtx, xmlSecTransformEnvelopedId) < 0)) {
 
 		message(G_LOG_LEVEL_CRITICAL, "Error: failed to limit allowed reference transforms");
@@ -1340,7 +1567,7 @@ lasso_verify_signature(xmlNode *signed_node, xmlDoc *doc, const char *id_attr_na
 	/* Find ID */
 	if (id_attr_name) {
 		id = xmlGetProp(signed_node, (xmlChar*)id_attr_name);
-		if (id) {
+		if (id && (xmlGetID(doc, id) == NULL)) {
 			xmlAddID(NULL, doc, id, xmlHasProp(signed_node, (xmlChar*)id_attr_name));
 		}
 	}
@@ -2004,12 +2231,18 @@ _lasso_xmlsec_load_key_from_buffer(const char *buffer, size_t length, const char
 	switch (signature_method) {
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
 		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
 			for (i = 0; key_formats[i] && private_key == NULL; i++) {
 				private_key = xmlSecCryptoAppKeyLoadMemory((xmlSecByte*)buffer, length,
 						key_formats[i], password, NULL, NULL);
 			}
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
 			private_key = xmlSecKeyReadMemory(xmlSecKeyDataHmacId, (xmlSecByte*)buffer, length);
 			if (private_key) {
 				xmlSecKeySetName(private_key, BAD_CAST "shared");
@@ -2021,27 +2254,34 @@ _lasso_xmlsec_load_key_from_buffer(const char *buffer, size_t length, const char
 	}
 	goto_cleanup_if_fail(private_key != NULL);
 	if (certificate) {
-		if (signature_method == LASSO_SIGNATURE_METHOD_RSA_SHA1 || signature_method == LASSO_SIGNATURE_METHOD_DSA_SHA1) {
-			int done = 0;
+		int done = 0;
 
-			for (i=0; cert_formats[i]; i++) {
-				if (xmlSecCryptoAppKeyCertLoad(private_key, certificate, cert_formats[i])
-						== 0) {
-					done = 1;
-					break;
+		switch (signature_method) {
+			case LASSO_SIGNATURE_METHOD_RSA_SHA1:
+			case LASSO_SIGNATURE_METHOD_DSA_SHA1:
+			case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+			case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+			case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+
+				for (i=0; cert_formats[i]; i++) {
+					if (xmlSecCryptoAppKeyCertLoad(private_key, certificate, cert_formats[i])
+							== 0) {
+						done = 1;
+						break;
+					}
+					if (xmlSecCryptoAppKeyCertLoadMemory(private_key, BAD_CAST certificate,
+								strlen(certificate), cert_formats[i]) == 0) {
+						done = 1;
+						break;
+					}
 				}
-				if (xmlSecCryptoAppKeyCertLoadMemory(private_key, BAD_CAST certificate,
-							strlen(certificate), cert_formats[i]) == 0) {
-					done = 1;
-					break;
+				if (done == 0) {
+					warning("Unable to load certificate: %s", certificate);
 				}
-			}
-			if (done == 0) {
-				warning("Unable to load certificate: %s", certificate);
-			}
-		} else {
-			warning("Attaching a certificate for signature only "
-					"works with DSA and RSA algorithms.");
+				break;
+			default:
+				warning("Attaching a certificate for signature only "
+						"works with DSA and RSA algorithms.");
 		}
 	}
 cleanup:
@@ -2525,6 +2765,8 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 	xmlNode *existing_signature = NULL, *signature = NULL, *reference, *key_info;
 	char *uri;
 
+	g_assert(id);
+
 	if (! lasso_validate_signature_context(context) || ! node)
 		return;
 
@@ -2537,6 +2779,24 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
 			transform_id = xmlSecTransformHmacSha1Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+			transform_id = xmlSecTransformRsaSha256Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+			transform_id = xmlSecTransformHmacSha256Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+			transform_id = xmlSecTransformRsaSha384Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+			transform_id = xmlSecTransformHmacSha384Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
+			transform_id = xmlSecTransformRsaSha512Id;
+			break;
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
+			transform_id = xmlSecTransformHmacSha512Id;
 			break;
 		default:
 			g_assert_not_reached();
@@ -2555,12 +2815,10 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 	 * other cases, set snippet->offset to 0 and use xmlSecTmpSignatureAddReference from another
 	 * node get_xmlNode virtual method to add the needed reference.
 	 */
-	if (id) {
-		uri = g_strdup_printf("#%s", id);
-		reference = xmlSecTmplSignatureAddReference(signature,
-				xmlSecTransformSha1Id, NULL, (xmlChar*)uri, NULL);
-		lasso_release(uri);
-	}
+	uri = g_strdup_printf("#%s", id);
+	reference = xmlSecTmplSignatureAddReference(signature,
+			xmlSecTransformSha1Id, NULL, (xmlChar*)uri, NULL);
+	lasso_release(uri);
 
 	/* add enveloped transform */
 	xmlSecTmplReferenceAddTransform(reference, xmlSecTransformEnvelopedId);
@@ -2570,6 +2828,9 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 	switch (context.signature_method) {
 		case LASSO_SIGNATURE_METHOD_RSA_SHA1:
 		case LASSO_SIGNATURE_METHOD_DSA_SHA1:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA256:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA384:
+		case LASSO_SIGNATURE_METHOD_RSA_SHA512:
 			/* asymetric cryptography methods */
 			key_info = xmlSecTmplSignatureEnsureKeyInfo(signature, NULL);
 			if (xmlSecKeyGetData(context.signature_key, xmlSecOpenSSLKeyDataX509Id)) {
@@ -2580,6 +2841,9 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 			}
 			break;
 		case LASSO_SIGNATURE_METHOD_HMAC_SHA1:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA256:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA384:
+		case LASSO_SIGNATURE_METHOD_HMAC_SHA512:
 			if (context.signature_key->name) {
 				key_info = xmlSecTmplSignatureEnsureKeyInfo(signature, NULL);
 				xmlSecTmplKeyInfoAddKeyName(key_info, NULL);
@@ -2589,4 +2853,76 @@ lasso_xmlnode_add_saml2_signature_template(xmlNode *node, LassoSignatureContext 
 		default:
 			g_assert_not_reached();
 	}
+}
+
+static char*
+get_saml_message(char **query_fields) {
+	int i;
+	char *field, *t;
+
+	for (i=0; (field=query_fields[i]); i++) {
+		t = strchr(field, '=');
+		if (t == NULL)
+			continue;
+		*t = 0;
+		if (strcmp(field, LASSO_SAML2_FIELD_ENCODING) == 0) {
+			return t+1;
+		}
+		if (strcmp(field, LASSO_SAML2_FIELD_REQUEST) == 0 || strcmp(field, LASSO_SAML2_FIELD_RESPONSE) == 0) {
+			return t+1;
+		}
+	}
+	return NULL;
+}
+
+/**
+ * lasso_xmltextreader_from_message:
+ * @message: the HTTP query, POST content or SOAP message
+ *
+ * Try to parse the passed message and create an xmlTextReader from it.
+ */
+xmlTextReader *
+lasso_xmltextreader_from_message(const char *message, xmlChar **to_free) {
+	size_t len = strlen(message);
+	char *needle;
+	char **query_fields = NULL;
+	char *decoded_message = NULL;
+	xmlTextReader *reader = NULL;
+
+	if (message[0] != '<') {
+		needle = strchr(message, '=');
+		if (needle) {
+			ptrdiff_t needle_pos = (needle-message);
+			if (len - needle_pos > 2) { // query
+				query_fields = urlencoded_to_strings(needle+1);
+				message = get_saml_message(query_fields);
+				if (! message)
+					goto cleanup;
+				len = strlen(message);
+			}
+		}
+		if (is_base64(message)) {
+			int rc;
+			decoded_message = g_malloc(len);
+			rc = xmlSecBase64Decode((xmlChar*)message, (xmlChar*)decoded_message, len);
+			if (rc < 0)
+				goto cleanup;
+			len = rc;
+			message = (char*)lasso_inflate((unsigned char*) decoded_message, rc);
+			lasso_release_string(decoded_message);
+			if (! message)
+				goto cleanup;
+		}
+	}
+
+	if (message[0] == '<') // XML case
+		reader = xmlReaderForMemory(message, len, "", NULL, XML_PARSE_NOENT |
+				XML_PARSE_NONET);
+
+cleanup:
+	if (query_fields)
+		lasso_release(query_fields);
+	if (decoded_message && to_free)
+		*to_free = BAD_CAST decoded_message;
+	return reader;
 }
